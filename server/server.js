@@ -1,17 +1,24 @@
+dotenv.config();
+
 import express from "express";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 
-dotenv.config();
+import { router } from "./routes/userRoutes.js";
 
 const app = express();
 const port = process.env.PORT || 3000;
+
+//middlewares
+app.use(express.json());
 
 app.get("/", (req, res) => {
   res.json({
     message: "Parisara API running",
   });
 });
+
+app.use("/api/auth", router);
 
 mongoose
   .connect(process.env.MONGODB_URI)
