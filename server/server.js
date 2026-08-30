@@ -1,10 +1,12 @@
-dotenv.config();
-
 import express from "express";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 
 import { router } from "./routes/userRoutes.js";
+
+dotenv.config({
+  path: "./.env",
+});
 
 const app = express();
 const port = process.env.PORT || 3000;
