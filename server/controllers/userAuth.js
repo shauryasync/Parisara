@@ -99,4 +99,8 @@ const loginUser = async (req, res) => {
     });
   }
 };
-export { registerUser, loginUser };
+
+const getProfile = (req, res) => {
+  res.send("My Profile");
+};
+export { registerUser, loginUser, getProfile };
