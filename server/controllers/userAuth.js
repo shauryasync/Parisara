@@ -100,7 +100,22 @@ const loginUser = async (req, res) => {
   }
 };
 
-const getProfile = (req, res) => {
-  res.send("My Profile");
+const getProfile = async (req, res) => {
+  const authHead = req.headers["authorization"];
+
+  if (!authHead || !authHead.startsWith("Bearer "))
+    return res.status(401).json({ message: "No Token" });
+
+  try {
+    const token = authHead.split(" ")[1];
+
+    const decodedPayload = jwt.verify(token, process.env.JWT_SECRET);
+
+    const user = await User.findById(decodedPayload._id).select("name email");
+
+    res.json({ email: user.email, name: user.name });
+  } catch (error) {
+    res.status(401).json({ message: "Token Expired" });
+  }
 };
 export { registerUser, loginUser, getProfile };

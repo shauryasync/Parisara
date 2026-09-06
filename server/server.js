@@ -1,7 +1,7 @@
 import express from "express";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
-
+import cors from "cors";
 import { router } from "./routes/userRoutes.js";
 
 dotenv.config({
@@ -9,6 +9,9 @@ dotenv.config({
 });
 
 const app = express();
+
+app.use(cors());
+
 const port = process.env.PORT || 3000;
 
 //middlewares
@@ -20,7 +23,7 @@ app.get("/", (req, res) => {
   });
 });
 
-app.use("/api/auth", router);
+app.use("/api", router);
 
 mongoose
   .connect(process.env.MONGODB_URI)
