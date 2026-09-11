@@ -4,9 +4,9 @@ import User from "../models/user.models.js";
 
 const registerUser = async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, username, email, password } = req.body;
 
-    if (!name || !email || !password) {
+    if (!name || !email || !password || !username) {
       return res.status(400).json({
         message: "Required Field!",
       });
@@ -30,6 +30,7 @@ const registerUser = async (req, res) => {
 
     const newUser = await User.create({
       name,
+      username,
       email,
       password: hashedPassword,
     });
@@ -37,6 +38,7 @@ const registerUser = async (req, res) => {
     res.status(201).json({
       message: "User registered successfully",
       name: newUser.name,
+      username: newUser.username,
       email: newUser.email,
     });
   } catch (err) {
@@ -57,7 +59,7 @@ const loginUser = async (req, res) => {
       });
     }
 
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email }).select("+password");
 
     if (!user) {
       return res.status(400).json({
@@ -89,6 +91,7 @@ const loginUser = async (req, res) => {
       user: {
         _id: user._id,
         name: user.name,
+        username: user.username,
         email: user.email,
         role: user.role,
       },

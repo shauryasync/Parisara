@@ -2,7 +2,8 @@ import express from "express";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 import cors from "cors";
-import { router } from "./routes/userRoutes.js";
+import { router as userRouter } from "./routes/userRoutes.js";
+import { router as reportRouter } from "./routes/report.routes.js";
 
 dotenv.config({
   path: "./.env",
@@ -23,7 +24,8 @@ app.get("/", (req, res) => {
   });
 });
 
-app.use("/api", router);
+app.use("/api", userRouter);
+app.use("/api", reportRouter);
 
 mongoose
   .connect(process.env.MONGODB_URI)
