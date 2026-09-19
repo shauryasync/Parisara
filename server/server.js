@@ -25,7 +25,7 @@ app.get("/", (req, res) => {
 });
 
 app.use("/api", userRouter);
-app.use("/api", reportRouter);
+app.use("/api/reports", reportRouter);
 
 mongoose
   .connect(process.env.MONGODB_URI)
