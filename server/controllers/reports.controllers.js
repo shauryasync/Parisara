@@ -33,7 +33,13 @@ const createReport = async (req, res) => {
       result,
     });
   } catch (error) {
-    res.status(500).json({ message: "Something went wrong in creating Report.", error });
+    console.error("Error creating report:", error);
+    const status = error.name === "ValidationError" ? 400 : 500;
+    res.status(status).json({
+      message:
+        status === 400 ? "Invalid report data" : "Something went wrong in creating Report.",
+      error: error.message,
+    });
   }
 };
 

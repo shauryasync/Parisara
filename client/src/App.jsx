@@ -3,6 +3,7 @@ import Profile from "./pages/Profile";
 import Register from "./pages/Register";
 import { Route, Routes, Navigate } from "react-router-dom";
 import Navbar from "./components/Navbar";
+import CreateReport from "./pages/CreateReport";
 
 function App() {
   return (
@@ -14,6 +15,7 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/me" element={<Profile />} />
+          <Route path="/reports/create-report" element={<CreateReport />} />
         </Routes>
       </main>
     </div>
