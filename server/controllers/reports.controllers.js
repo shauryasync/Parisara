@@ -36,8 +36,7 @@ const createReport = async (req, res) => {
     console.error("Error creating report:", error);
     const status = error.name === "ValidationError" ? 400 : 500;
     res.status(status).json({
-      message:
-        status === 400 ? "Invalid report data" : "Something went wrong in creating Report.",
+      message: status === 400 ? "Invalid report data" : "Something went wrong in creating Report.",
       error: error.message,
     });
   }
@@ -51,7 +50,10 @@ const getReports = async (req, res) => {
     if (category) filter.category = category;
     if (status) filter.status = status;
 
-    const fetchedReport = await Report.find(filter).sort({ createdAt: -1 });
+    const fetchedReport = await Report.find(filter)
+      .populate("reportedBy", "name username")
+      .populate("comments.username", "name username")
+      .sort({ createdAt: -1 });
 
     return res.status(200).json({
       message: fetchedReport.length > 0 ? "Fetched Report" : "No Report",

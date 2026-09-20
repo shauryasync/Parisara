@@ -114,9 +114,15 @@ const getProfile = async (req, res) => {
 
     const decodedPayload = jwt.verify(token, process.env.JWT_SECRET);
 
-    const user = await User.findById(decodedPayload._id).select("name email");
+    const user = await User.findById(decodedPayload._id).select("name username email role");
 
-    res.json({ email: user.email, name: user.name });
+    res.json({
+      _id: user._id,
+      name: user.name,
+      username: user.username,
+      email: user.email,
+      role: user.role,
+    });
   } catch (error) {
     res.status(401).json({ message: "Token Expired" });
   }
