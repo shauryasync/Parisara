@@ -32,6 +32,21 @@ const Profile = () => {
     };
   }
 
+  const handleDelete = async (reportId) => {
+    const confirmed = window.confirm("Are you sure you want to delete this report?");
+
+    if (!confirmed) return;
+
+    try {
+      await api.delete(`/reports/get-reports/${reportId}`);
+
+      setMyReports((previousReports) => previousReports.filter((report) => report.id !== reportId));
+    } catch (error) {
+      console.error(error);
+      window.alert(error.response?.data?.message || "Unable to delete report");
+    }
+  };
+
   useEffect(() => {
     const token = localStorage.getItem("token");
 
@@ -88,7 +103,7 @@ const Profile = () => {
         ) : (
           <div className="grid gap-6 md:grid-cols-2">
             {myreports.map((myreport) => (
-              <ReportCard key={myreport.id} report={myreport} />
+              <ReportCard key={myreport.id} report={myreport} canEdit onDelete={handleDelete} />
             ))}
           </div>
         )}

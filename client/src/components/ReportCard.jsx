@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { MapPin, ThumbsUp, MessageCircle, Share2, Send } from "lucide-react";
+import { MapPin, ThumbsUp, MessageCircle, Share2, Send, Pencil, Trash2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 const CATEGORY_STYLES = {
   water: "bg-teal-100 text-teal-800",
@@ -24,7 +25,9 @@ const formatLabel = (value) =>
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
 
-const ReportCard = ({ report }) => {
+const ReportCard = ({ report, canEdit = false, onDelete }) => {
+  const navigate = useNavigate();
+
   const [comment, setComment] = useState("");
   const catStyle = CATEGORY_STYLES[report.category] || "bg-stone-100 text-stone-700";
 
@@ -40,9 +43,34 @@ const ReportCard = ({ report }) => {
             <div className="text-xs text-stone-400">{timeAgo(report.createdAt)}</div>
           </div>
         </div>
-        <span className={`px-3 py-1 rounded-full text-xs font-bold flex-shrink-0 ${catStyle}`}>
-          {formatLabel(report.category)}
-        </span>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <span className={`px-3 py-1 rounded-full text-xs font-bold ${catStyle}`}>
+            {formatLabel(report.category)}
+          </span>
+          {canEdit && (
+            <>
+              <button
+                type="button"
+                onClick={() => navigate(`/reports/${report.id}/edit`)}
+                aria-label="Edit report"
+                title="Edit report"
+                className="w-8 h-8 rounded-full text-stone-500 flex items-center justify-center hover:bg-stone-100 hover:text-emerald-700 transition"
+              >
+                <Pencil size={16} />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => onDelete(report.id)}
+                aria-label="Delete report"
+                title="Delete report"
+                className="w-8 h-8 rounded-full text-stone-500 flex items-center justify-center hover:bg-stone-100 hover:text-emerald-700 transition"
+              >
+                <Trash2 size={16} />
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {report.image ? (

@@ -11,7 +11,7 @@ import {
   BadgeCheck,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import api from "../services/api";
 
 const CATEGORIES = [
@@ -23,6 +23,8 @@ const CATEGORIES = [
 ];
 
 export default function CreateReport() {
+  const { id } = useParams();
+  const isEditMode = Boolean(id);
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     title: "",
@@ -30,12 +32,35 @@ export default function CreateReport() {
     placename: "",
     category: "water",
   });
-
+  const [existingImages, setExistingImages] = useState([]);
   const [images, setImages] = useState([]);
   const [imagePreviews, setImagePreviews] = useState([]);
   const previewUrlsRef = useRef([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const allImagePreviews = [...existingImages, ...imagePreviews];
+
+  useEffect(() => {
+    if (!id) return;
+    const fetchReport = async () => {
+      try {
+        const res = await api.get(`/reports/get-reports/${id}`);
+        const report = res.data.data;
+
+        setFormData({
+          title: report.title,
+          details: report.details,
+          placename: report.placename,
+          category: report.category,
+        });
+        setExistingImages(report.images || []);
+      } catch (error) {
+        setError(error.response?.data?.message || "Unable to load Report");
+      }
+    };
+
+    fetchReport();
+  }, [id]);
 
   useEffect(() => {
     return () => previewUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
@@ -73,7 +98,11 @@ export default function CreateReport() {
     images.forEach((image) => payload.append("images", image));
 
     try {
-      await api.post("/reports/create-report", payload);
+      if (isEditMode) {
+        await api.patch(`/reports/get-reports/${id}`, payload);
+      } else {
+        await api.post("/reports/create-report", payload);
+      }
       navigate("/me");
     } catch (err) {
       setError(err.response?.data?.message || "Something went wrong");
@@ -215,13 +244,13 @@ export default function CreateReport() {
                     hidden
                     onChange={handleImagesChange}
                   />
-                  {images.length > 0 && (
+                  {existingImages.length > 0 && (
                     <div className="grid grid-cols-3 gap-2 w-full">
-                      {imagePreviews.map((previewUrl, index) => (
+                      {existingImages.map((imageUrl) => (
                         <img
-                          key={previewUrl}
-                          src={previewUrl}
-                          alt={`Selected evidence ${index + 1}`}
+                          key={imageUrl}
+                          src={imageUrl}
+                          alt="Existing report evidence"
                           className="h-20 w-full rounded-lg object-cover"
                         />
                       ))}
@@ -246,8 +275,13 @@ export default function CreateReport() {
                   disabled={loading}
                   className="px-7 py-3 rounded-full bg-emerald-800 text-white hover:bg-emerald-700 disabled:opacity-60 transition font-semibold text-sm flex items-center gap-2"
                 >
-                  <Send size={18} />
-                  {loading ? "Posting..." : "Post Report"}
+                  {loading
+                    ? isEditMode
+                      ? "Saving..."
+                      : "Posting..."
+                    : isEditMode
+                      ? "Save Changes"
+                      : "Post Report"}
                 </button>
               </div>
             </form>
@@ -285,9 +319,9 @@ export default function CreateReport() {
               </div>
 
               <div className="px-4">
-                {imagePreviews.length > 0 ? (
+                {allImagePreviews.length > 0 ? (
                   <div className="grid grid-cols-3 gap-2">
-                    {imagePreviews.map((previewUrl, index) => (
+                    {allImagePreviews.map((previewUrl, index) => (
                       <img
                         key={previewUrl}
                         src={previewUrl}
