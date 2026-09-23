@@ -44,11 +44,23 @@ const createReport = async (req, res) => {
 
 const getReports = async (req, res) => {
   try {
-    const { category, status } = req.query;
+    const { category, status, search } = req.query;
     const filter = {};
 
     if (category) filter.category = category;
     if (status) filter.status = status;
+
+    if (search && search.trim()) {
+      const query = search.trim();
+      if (query) {
+        filter.$or = [
+          { title: { $regex: query, $options: "i" } },
+          { details: { $regex: query, $options: "i" } },
+          { placename: { $regex: query, $options: "i" } },
+          { category: { $regex: query, $options: "i" } },
+        ];
+      }
+    }
 
     const fetchedReport = await Report.find(filter)
       .populate("reportedBy", "name username")
@@ -60,6 +72,7 @@ const getReports = async (req, res) => {
       data: fetchedReport,
     });
   } catch (error) {
+    console.log(error);
     res.status(500).json({ message: "Server Error" });
   }
 };

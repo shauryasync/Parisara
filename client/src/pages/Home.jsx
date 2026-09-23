@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Clock, TrendingUp, MapPin, CalendarDays, Flame } from "lucide-react";
+import { Clock, TrendingUp, MapPin, CalendarDays, Flame, Search } from "lucide-react";
 import Navbar from "../components/Navbar";
 import ReportCard from "../components/ReportCard";
 import api from "../services/api";
@@ -63,6 +63,7 @@ function mapReport(report) {
 }
 
 export default function Feed() {
+  const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState("nearby");
   const [activeCategories, setActiveCategories] = useState([]);
   const [activeStatuses, setActiveStatuses] = useState([]);
@@ -98,9 +99,17 @@ export default function Feed() {
           activeCategories.length === 0 || activeCategories.includes(report.category);
         const statusMatches = activeStatuses.length === 0 || activeStatuses.includes(report.status);
 
-        return categoryMatches && statusMatches;
+        const normalizedSearch = search.trim();
+
+        const searchMatches =
+          normalizedSearch === "" ||
+          [report.title, report.description, report.location, report.category, report.status]
+            .filter(Boolean)
+            .some((value) => value.toLowerCase().includes(normalizedSearch));
+
+        return categoryMatches && statusMatches && searchMatches;
       }),
-    [rawReports, activeCategories, activeStatuses],
+    [rawReports, activeCategories, activeStatuses, search],
   );
 
   const myReportCount = rawReports.filter((report) => report.authorId === currentUser?._id).length;
@@ -204,25 +213,43 @@ export default function Feed() {
 
         {/* centre: feed */}
         <main className="lg:col-span-6 flex flex-col gap-6">
-          <section className="bg-white rounded-2xl border border-stone-200 p-3 flex flex-wrap items-center gap-2 sticky top-20 z-10">
-            {FILTERS.map(({ label, icon: Icon, key }) => {
-              const active = activeFilter === key;
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => setActiveFilter(key)}
-                  className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm font-medium transition ${
-                    active
-                      ? "bg-emerald-900 text-white"
-                      : "bg-stone-100 text-stone-500 hover:bg-stone-200"
-                  }`}
-                >
-                  <Icon size={16} />
-                  <span>{label}</span>
-                </button>
-              );
-            })}
+          <section className="bg-white rounded-2xl border border-stone-200 p-3 sticky top-20 z-10">
+            <div className="mb-3">
+              <div className="relative">
+                <Search
+                  size={16}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400"
+                />
+                <input
+                  type="text"
+                  placeholder="Search reports, places, categories..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full rounded-xl border border-stone-200 bg-stone-50 py-2.5 pl-9 pr-3 text-sm text-stone-700 placeholder:text-stone-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-100"
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {FILTERS.map(({ label, icon: Icon, key }) => {
+                const active = activeFilter === key;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setActiveFilter(key)}
+                    className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm font-medium transition ${
+                      active
+                        ? "bg-emerald-900 text-white"
+                        : "bg-stone-100 text-stone-500 hover:bg-stone-200"
+                    }`}
+                  >
+                    <Icon size={16} />
+                    <span>{label}</span>
+                  </button>
+                );
+              })}
+            </div>
           </section>
 
           <div className="flex flex-col gap-6">
