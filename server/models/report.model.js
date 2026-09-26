@@ -1,21 +1,5 @@
 import mongoose from "mongoose";
 
-const commentSchema = new mongoose.Schema(
-  {
-    username: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      required: true,
-    },
-    text: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-  },
-  { timestamps: true },
-);
-
 const reportSchema = new mongoose.Schema(
   {
     title: {
@@ -55,14 +39,6 @@ const reportSchema = new mongoose.Schema(
       enum: ["reported", "in-progress", "resolved"],
       default: "reported",
     },
-
-    likes: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
-      },
-    ],
-    comments: [commentSchema],
   },
   { timestamps: true },
 );

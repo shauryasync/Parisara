@@ -64,7 +64,6 @@ const getReports = async (req, res) => {
 
     const fetchedReport = await Report.find(filter)
       .populate("reportedBy", "name username")
-      .populate("comments.username", "name username")
       .sort({ createdAt: -1 });
 
     return res.status(200).json({
