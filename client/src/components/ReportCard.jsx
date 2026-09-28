@@ -25,11 +25,21 @@ const formatLabel = (value) =>
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
 
-const ReportCard = ({ report, canEdit = false, onDelete }) => {
+const ReportCard = ({
+  report,
+  canEdit = false,
+  onDelete,
+  isAuthenticated = Boolean(localStorage.getItem("token")),
+  onSupport,
+  supporting = false,
+}) => {
   const navigate = useNavigate();
 
   const [comment, setComment] = useState("");
   const catStyle = CATEGORY_STYLES[report.category] || "bg-stone-100 text-stone-700";
+  const comments = report.comments || [];
+  const supportCount = report.supportCount ?? report.likes ?? 0;
+  const commentCount = report.commentCount ?? comments.length;
 
   return (
     <article className="bg-white rounded-2xl border border-stone-200 shadow-sm p-5 flex flex-col hover:shadow-md transition">
@@ -74,21 +84,37 @@ const ReportCard = ({ report, canEdit = false, onDelete }) => {
       </div>
 
       {report.image ? (
-        <div className="relative w-full h-52 rounded-xl overflow-hidden mb-4 bg-stone-100">
+        <button
+          type="button"
+          onClick={() => navigate(`/reports/${report.id}`)}
+          aria-label={`Open report: ${report.title}`}
+          className="relative w-full h-52 rounded-xl overflow-hidden mb-4 bg-stone-100 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
+        >
           <img src={report.image} alt={report.title} className="w-full h-full object-cover" />
           <div className="absolute top-3 left-3 px-3 py-1 rounded-full bg-white/90 backdrop-blur text-emerald-900 text-xs font-bold flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-emerald-600" />
             {formatLabel(report.status)}
           </div>
-        </div>
+        </button>
       ) : (
-        <div className="w-full h-52 rounded-xl mb-4 bg-stone-100 flex items-center justify-center text-stone-400 text-sm">
+        <button
+          type="button"
+          onClick={() => navigate(`/reports/${report.id}`)}
+          aria-label={`Open report: ${report.title}`}
+          className="w-full h-52 rounded-xl mb-4 bg-stone-100 flex items-center justify-center text-stone-400 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
+        >
           No photo attached
-        </div>
+        </button>
       )}
 
-      <h2 className="font-bold text-emerald-900 mb-1.5 leading-tight hover:text-emerald-700 cursor-pointer">
-        {report.title}
+      <h2 className="font-bold text-emerald-900 mb-1.5 leading-tight">
+        <button
+          type="button"
+          onClick={() => navigate(`/reports/${report.id}`)}
+          className="text-left hover:text-emerald-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
+        >
+          {report.title}
+        </button>
       </h2>
       <p className="text-sm text-stone-500 mb-2.5 line-clamp-2">{report.description}</p>
 
@@ -98,13 +124,23 @@ const ReportCard = ({ report, canEdit = false, onDelete }) => {
       </div>
 
       <div className="flex items-center justify-between py-2.5 border-y border-stone-200 text-sm mb-3">
-        <button className="flex items-center gap-1.5 text-emerald-800 font-semibold hover:text-emerald-600 transition">
-          <ThumbsUp size={16} />
-          <span>{report.likes} likes</span>
+        <button
+          type="button"
+          onClick={() => onSupport?.(report)}
+          disabled={supporting || !onSupport}
+          aria-pressed={Boolean(report.supportedByCurrentUser)}
+          className={`flex items-center gap-1.5 font-semibold transition disabled:opacity-60 ${
+            report.supportedByCurrentUser
+              ? "text-emerald-700"
+              : "text-stone-500 hover:text-emerald-700"
+          }`}
+        >
+          <ThumbsUp size={16} fill={report.supportedByCurrentUser ? "currentColor" : "none"} />
+          <span>{supportCount} support</span>
         </button>
         <button className="flex items-center gap-1.5 text-stone-500 hover:text-emerald-700 transition">
           <MessageCircle size={16} />
-          <span>{report.comments.length} comments</span>
+          <span>{commentCount} comments</span>
         </button>
         <button className="flex items-center gap-1.5 text-stone-500 hover:text-emerald-700 transition">
           <Share2 size={16} />
@@ -112,38 +148,48 @@ const ReportCard = ({ report, canEdit = false, onDelete }) => {
         </button>
       </div>
 
-      {report.comments.length > 0 && (
+      {comments.length > 0 && (
         <div className="flex flex-col gap-1.5 p-3 rounded-xl bg-stone-50 mb-3 text-sm">
-          {report.comments.slice(0, 2).map((c, i) => (
-            <div key={i}>
+          {comments.slice(0, 2).map((c, i) => (
+            <div key={c.id || i}>
               <span className="font-bold text-emerald-900 mr-1.5">{c.author}:</span>
               <span className="text-stone-600">{c.text}</span>
             </div>
           ))}
-          {report.comments.length > 2 && (
+          {commentCount > comments.length && (
             <button className="text-left text-xs font-bold text-emerald-700 hover:underline mt-1">
-              View all {report.comments.length} comments
+              View all {commentCount} comments
             </button>
           )}
         </div>
       )}
 
-      <div className="flex items-center gap-2 pt-2 border-t border-stone-200">
-        <input
-          type="text"
-          value={comment}
-          onChange={(e) => setComment(e.target.value)}
-          placeholder="Add a comment..."
-          className="flex-1 bg-white border border-stone-300 rounded-full px-3.5 py-2 text-sm outline-none focus:ring-1 focus:ring-emerald-600 focus:border-emerald-600"
-        />
+      {isAuthenticated ? (
+        <div className="flex items-center gap-2 pt-2 border-t border-stone-200">
+          <input
+            type="text"
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            placeholder="Add a comment..."
+            className="flex-1 bg-white border border-stone-300 rounded-full px-3.5 py-2 text-sm outline-none focus:ring-1 focus:ring-emerald-600 focus:border-emerald-600"
+          />
+          <button
+            type="button"
+            disabled={!comment.trim()}
+            className="w-8 h-8 rounded-full bg-emerald-800 text-white flex items-center justify-center hover:bg-emerald-700 disabled:opacity-40 transition"
+          >
+            <Send size={14} />
+          </button>
+        </div>
+      ) : (
         <button
           type="button"
-          disabled={!comment.trim()}
-          className="w-8 h-8 rounded-full bg-emerald-800 text-white flex items-center justify-center hover:bg-emerald-700 disabled:opacity-40 transition"
+          onClick={() => navigate("/login")}
+          className="pt-2 border-t border-stone-200 text-left text-sm font-semibold text-emerald-800 hover:text-emerald-600"
         >
-          <Send size={14} />
+          Sign in to comment
         </button>
-      </div>
+      )}
     </article>
   );
 };

@@ -27,4 +27,18 @@ const protect = async (req, res, next) => {
   }
 };
 
-export { protect };
+const optionalAuth = (req, res, next) => {
+  const authHead = req.headers.authorization;
+
+  if (authHead?.startsWith("Bearer ")) {
+    try {
+      req.user = jwt.verify(authHead.split(" ")[1], process.env.JWT_SECRET);
+    } catch {
+      req.user = null;
+    }
+  }
+
+  next();
+};
+
+export { optionalAuth, protect };

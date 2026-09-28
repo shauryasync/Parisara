@@ -1,5 +1,8 @@
 import Report from "../models/report.model.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
+import Support from "../models/support.model.js";
+import Comment from "../models/comment.model.js";
+import Save from "../models/save.model.js";
 
 const createReport = async (req, res) => {
   try {
@@ -62,13 +65,38 @@ const getReports = async (req, res) => {
       }
     }
 
-    const fetchedReport = await Report.find(filter)
+    const fetchedReports = await Report.find(filter)
       .populate("reportedBy", "name username")
       .sort({ createdAt: -1 });
 
+    const reportsWithDetails = await Promise.all(
+      fetchedReports.map(async (report) => {
+        const userId = req.user?._id;
+        const [supportCount, commentCount, recentComments, supported, saved] = await Promise.all([
+          Support.countDocuments({ report: report._id }),
+          Comment.countDocuments({ report: report._id }),
+          Comment.find({ report: report._id })
+            .populate("user", "name username")
+            .sort({ createdAt: -1 })
+            .limit(2),
+          userId ? Support.exists({ report: report._id, user: userId }) : null,
+          userId ? Save.exists({ report: report._id, user: userId }) : null,
+        ]);
+
+        return {
+          ...report.toObject(),
+          supportCount,
+          supportedByCurrentUser: Boolean(supported),
+          savedByCurrentUser: Boolean(saved),
+          commentCount,
+          recentComments,
+        };
+      }),
+    );
+
     return res.status(200).json({
-      message: fetchedReport.length > 0 ? "Fetched Report" : "No Report",
-      data: fetchedReport,
+      message: fetchedReports.length > 0 ? "Fetched Report" : "No Report",
+      data: reportsWithDetails,
     });
   } catch (error) {
     console.log(error);
@@ -84,7 +112,21 @@ const getReportById = async (req, res) => {
 
     if (!report) return res.status(404).json({ message: "Not Found" });
 
-    res.status(200).json({ message: "Fetched Your Report", data: report });
+    const [supportCount, commentCount, supported] = await Promise.all([
+      Support.countDocuments({ report: report._id }),
+      Comment.countDocuments({ report: report._id }),
+      req.user?._id ? Support.exists({ report: report._id, user: req.user._id }) : null,
+    ]);
+
+    res.status(200).json({
+      message: "Fetched Your Report",
+      data: {
+        ...report.toObject(),
+        supportCount,
+        commentCount,
+        supportedByCurrentUser: Boolean(supported),
+      },
+    });
   } catch (error) {
     res.status(500).json({ message: "Server Error" });
   }
