@@ -112,10 +112,11 @@ const getReportById = async (req, res) => {
 
     if (!report) return res.status(404).json({ message: "Not Found" });
 
-    const [supportCount, commentCount, supported] = await Promise.all([
+    const [supportCount, commentCount, supported, saved] = await Promise.all([
       Support.countDocuments({ report: report._id }),
       Comment.countDocuments({ report: report._id }),
       req.user?._id ? Support.exists({ report: report._id, user: req.user._id }) : null,
+      req.user?._id ? Save.exists({ report: report._id, user: req.user._id }) : null,
     ]);
 
     res.status(200).json({
@@ -125,6 +126,7 @@ const getReportById = async (req, res) => {
         supportCount,
         commentCount,
         supportedByCurrentUser: Boolean(supported),
+        savedByCurrentUser: Boolean(saved),
       },
     });
   } catch (error) {

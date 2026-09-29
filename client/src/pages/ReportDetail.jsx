@@ -1,6 +1,5 @@
-import { useNavigate, useParams } from "react-router-dom";
-import { Link } from "react-router-dom";
-import { ArrowLeft, CalendarDays, Share2, ThumbsUp, MapPin } from "lucide-react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { ArrowLeft, CalendarDays, Share2, ThumbsUp, MapPin, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import api from "../services/api";
 
@@ -13,6 +12,15 @@ const ReportDetail = () => {
   const [actionError, setActionError] = useState("");
   const [shareMessage, setShareMessage] = useState("");
   const [supporting, setSupporting] = useState(false);
+  const [comments, setComments] = useState([]);
+  const [commentsLoading, setCommentsLoading] = useState(true);
+  const [commentsError, setCommentsError] = useState("");
+  const [commentText, setCommentText] = useState("");
+  const [submittingComment, setSubmittingComment] = useState(false);
+  const [deletingCommentId, setDeletingCommentId] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null);
+
+  const navigate = useNavigate();
 
   useEffect(() => {
     const loadReport = async () => {
@@ -34,7 +42,97 @@ const ReportDetail = () => {
     loadReport();
   }, [id]);
 
-  const navigate = useNavigate();
+  useEffect(() => {
+    let isActive = true;
+
+    const loadComments = async () => {
+      setCommentsError("");
+      setCommentsLoading(true);
+      setComments([]);
+
+      try {
+        const [commentsResponse, profileResponse] = await Promise.all([
+          api.get(`/reports/${id}/comments`),
+          localStorage.getItem("token") ? api.get("/me").catch(() => null) : Promise.resolve(null),
+        ]);
+
+        if (isActive) {
+          setComments(commentsResponse.data.data.comments || []);
+          setCurrentUser(profileResponse?.data || null);
+        }
+      } catch (error) {
+        if (isActive) {
+          setCommentsError(error.response?.data?.message || "Could not load comments.");
+        }
+      } finally {
+        if (isActive) setCommentsLoading(false);
+      }
+    };
+
+    loadComments();
+
+    return () => {
+      isActive = false;
+    };
+  }, [id]);
+
+  useEffect(() => {
+    if (!loading && report && window.location.hash === "#comments") {
+      document.getElementById("comments")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [loading, report]);
+
+  const handleSubmitComment = async (e) => {
+    e.preventDefault();
+    const content = commentText.trim();
+
+    if (!content) return;
+    if (!localStorage.getItem("token")) {
+      navigate("/login");
+      return;
+    }
+
+    setSubmittingComment(true);
+    setCommentsError("");
+
+    try {
+      const response = await api.post(`/reports/${id}/comments`, { content });
+      const newComment = response.data.data.comment;
+      const commentForList = {
+        ...newComment,
+        user: currentUser || { _id: newComment.user, name: "You" },
+      };
+
+      setComments((currentComments) => [commentForList, ...currentComments]);
+      setCommentText("");
+    } catch (error) {
+      setCommentsError(error.response?.data?.message || "Could not add your comment.");
+    } finally {
+      setSubmittingComment(false);
+    }
+  };
+
+  const handleDeleteComment = async (commentId) => {
+    if (!localStorage.getItem("token")) {
+      navigate("/login");
+      return;
+    }
+
+    setDeletingCommentId(commentId);
+    setCommentsError("");
+
+    try {
+      await api.delete(`/comments/${commentId}`);
+      setComments((currentComments) =>
+        currentComments.filter((comment) => comment._id !== commentId),
+      );
+    } catch (error) {
+      setCommentsError(error.response?.data?.message || "Could not delete this comment.");
+    } finally {
+      setDeletingCommentId(null);
+    }
+  };
+
   const handleSupport = async () => {
     if (!localStorage.getItem("token")) {
       navigate("/login");
@@ -192,6 +290,106 @@ const ReportDetail = () => {
               <p className="mt-3 whitespace-pre-line text-sm leading-6 text-stone-600">
                 {report.details}
               </p>
+            </section>
+
+            <section
+              id="comments"
+              className="rounded-lg border border-stone-200 bg-white p-5 sm:p-6"
+              aria-labelledby="comments-heading"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <h2 id="comments-heading" className="text-lg font-semibold text-stone-900">
+                  Comments <span className="text-stone-500">({comments.length})</span>
+                </h2>
+              </div>
+
+              {commentsError && (
+                <p role="alert" className="mt-3 text-sm text-red-700">
+                  {commentsError}
+                </p>
+              )}
+
+              {localStorage.getItem("token") ? (
+                <form onSubmit={handleSubmitComment} className="mt-4">
+                  <label htmlFor="comment-content" className="sr-only">
+                    Write a comment
+                  </label>
+                  <textarea
+                    id="comment-content"
+                    value={commentText}
+                    onChange={(event) => setCommentText(event.target.value)}
+                    placeholder="Write a comment..."
+                    rows={3}
+                    maxLength={1000}
+                    className="w-full resize-y rounded-md border border-stone-300 px-3 py-2 text-sm outline-none focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+                  />
+                  <div className="mt-2 flex justify-end">
+                    <button
+                      type="submit"
+                      disabled={!commentText.trim() || submittingComment}
+                      className="min-h-10 rounded-md bg-emerald-800 px-4 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {submittingComment ? "Posting..." : "Post comment"}
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <p className="mt-4 text-sm text-stone-600">
+                  <Link to="/login" className="font-semibold text-emerald-800 hover:underline">
+                    Sign in
+                  </Link>{" "}
+                  to add a comment.
+                </p>
+              )}
+
+              {commentsLoading ? (
+                <p role="status" className="mt-5 text-sm text-stone-500">
+                  Loading comments...
+                </p>
+              ) : comments.length === 0 ? (
+                <p className="mt-5 text-sm text-stone-500">No comments yet.</p>
+              ) : (
+                <div className="mt-5 divide-y divide-stone-200">
+                  {comments.map((comment) => {
+                    const commentUserId = comment.user?._id || comment.user;
+                    const isOwner =
+                      currentUser?._id && String(commentUserId) === String(currentUser._id);
+                    const commentAuthor =
+                      comment.user?.name || comment.user?.username || "Community member";
+
+                    return (
+                      <article key={comment._id} className="py-4 first:pt-0 last:pb-0">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="font-semibold text-stone-900">{commentAuthor}</p>
+                            <time
+                              dateTime={comment.createdAt}
+                              className="mt-0.5 block text-xs text-stone-500"
+                            >
+                              {new Date(comment.createdAt).toLocaleString()}
+                            </time>
+                          </div>
+                          {isOwner && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteComment(comment._id)}
+                              disabled={deletingCommentId === comment._id}
+                              aria-label="Delete your comment"
+                              title="Delete your comment"
+                              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-stone-500 hover:bg-red-50 hover:text-red-700 disabled:opacity-50"
+                            >
+                              <Trash2 size={16} aria-hidden="true" />
+                            </button>
+                          )}
+                        </div>
+                        <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-stone-700">
+                          {comment.content}
+                        </p>
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
             </section>
           </div>
 

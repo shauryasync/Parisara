@@ -53,7 +53,7 @@ const createNewComment = async (req, res) => {
 
 const getComment = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = req.user?._id;
     const { id } = req.params;
 
     const report = await Report.findById(id);
@@ -70,10 +70,12 @@ const getComment = async (req, res) => {
 
     const count = comments.length;
 
-    const isCommented = await Comment.exists({
-      user: userId,
-      report: id,
-    });
+    const isCommented = userId
+      ? await Comment.exists({
+          user: userId,
+          report: id,
+        })
+      : false;
 
     return res.status(200).json({
       success: true,

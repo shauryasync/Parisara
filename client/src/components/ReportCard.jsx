@@ -43,24 +43,46 @@ const ReportCard = ({
   supporting = false,
   onSave,
   saving = false,
+  onComment,
+  commenting = false,
 }) => {
   const navigate = useNavigate();
 
   const [comment, setComment] = useState("");
   const catStyle = CATEGORY_STYLES[report.category] || "bg-stone-100 text-stone-700";
+  const authorName =
+    typeof report.author?.name === "string" && report.author.name.trim()
+      ? report.author.name.trim()
+      : "Community member";
   const comments = report.comments || [];
   const supportCount = report.supportCount ?? report.likes ?? 0;
   const commentCount = report.commentCount ?? comments.length;
+
+  const handleCommentSubmit = async (e) => {
+    e.preventDefault();
+    const content = comment.trim();
+
+    if (!content) return;
+    if (!isAuthenticated) {
+      navigate("/login");
+      return;
+    }
+
+    const sent = await onComment?.(report, content);
+    if (sent) setComment("");
+  };
+
+  const openComments = () => navigate(`/reports/${report.id}#comments`);
 
   return (
     <article className="bg-white rounded-2xl border border-stone-200 shadow-sm p-5 flex flex-col hover:shadow-md transition">
       <div className="flex items-center justify-between gap-2 mb-3.5">
         <div className="flex items-center gap-2.5 min-w-0">
           <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-800 font-semibold flex-shrink-0">
-            {report.author.name.charAt(0)}
+            {authorName.charAt(0).toUpperCase()}
           </div>
           <div className="min-w-0">
-            <div className="font-bold text-emerald-900 truncate">{report.author.name}</div>
+            <div className="font-bold text-emerald-900 truncate">{authorName}</div>
             <div className="text-xs text-stone-400">{timeAgo(report.createdAt)}</div>
           </div>
         </div>
@@ -149,7 +171,12 @@ const ReportCard = ({
           <ThumbsUp size={16} fill={report.supportedByCurrentUser ? "currentColor" : "none"} />
           <span>{supportCount} support</span>
         </button>
-        <button className="flex items-center gap-1.5 text-stone-500 hover:text-emerald-700 transition">
+        <button
+          type="button"
+          onClick={openComments}
+          aria-label={`View ${commentCount} comments on ${report.title}`}
+          className="flex items-center gap-1.5 text-stone-500 hover:text-emerald-700 transition"
+        >
           <MessageCircle size={16} />
           <span>{commentCount} comments</span>
         </button>
@@ -181,7 +208,11 @@ const ReportCard = ({
             </div>
           ))}
           {commentCount > comments.length && (
-            <button className="text-left text-xs font-bold text-emerald-700 hover:underline mt-1">
+            <button
+              type="button"
+              onClick={openComments}
+              className="text-left text-xs font-bold text-emerald-700 hover:underline mt-1"
+            >
               View all {commentCount} comments
             </button>
           )}
@@ -189,22 +220,28 @@ const ReportCard = ({
       )}
 
       {isAuthenticated ? (
-        <div className="flex items-center gap-2 pt-2 border-t border-stone-200">
+        <form
+          onSubmit={handleCommentSubmit}
+          className="flex items-center gap-2 pt-2 border-t border-stone-200"
+        >
           <input
             type="text"
             value={comment}
             onChange={(e) => setComment(e.target.value)}
             placeholder="Add a comment..."
+            aria-label={`Add a comment to ${report.title}`}
             className="flex-1 bg-white border border-stone-300 rounded-full px-3.5 py-2 text-sm outline-none focus:ring-1 focus:ring-emerald-600 focus:border-emerald-600"
           />
           <button
-            type="button"
-            disabled={!comment.trim()}
+            type="submit"
+            disabled={!comment.trim() || commenting || !onComment}
+            aria-label="Send comment"
+            title="Send comment"
             className="w-8 h-8 rounded-full bg-emerald-800 text-white flex items-center justify-center hover:bg-emerald-700 disabled:opacity-40 transition"
           >
-            <Send size={14} />
+            <Send size={14} aria-hidden="true" />
           </button>
-        </div>
+        </form>
       ) : (
         <button
           type="button"

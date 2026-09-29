@@ -81,6 +81,8 @@ export default function Feed() {
   const [supportingReportId, setSupportingReportId] = useState(null);
   const [saveError, setSaveError] = useState(null);
   const [savingReportId, setSavingReportId] = useState(null);
+  const [commentError, setCommentError] = useState(null);
+  const [commentingReportId, setCommentingReportId] = useState(null);
 
   useEffect(() => {
     const loadFeed = async () => {
@@ -157,6 +159,44 @@ export default function Feed() {
       setSaveError(err.response?.data?.message || "Unable to update saved report.");
     } finally {
       setSavingReportId(null);
+    }
+  };
+
+  const handleComment = async (report, content) => {
+    if (!currentUser) {
+      navigate("/login");
+      return false;
+    }
+
+    setCommentError(null);
+    setCommentingReportId(report.id);
+
+    try {
+      const response = await api.post(`/reports/${report.id}/comments`, { content });
+      const { comment, count } = response.data.data;
+      const newPreviewComment = {
+        id: comment._id,
+        author: currentUser.name || currentUser.username || "You",
+        text: comment.content,
+      };
+
+      setRawReports((previousReports) =>
+        previousReports.map((item) =>
+          item.id === report.id
+            ? {
+                ...item,
+                commentCount: count,
+                comments: [newPreviewComment, ...item.comments].slice(0, 2),
+              }
+            : item,
+        ),
+      );
+      return true;
+    } catch (err) {
+      setCommentError(err.response?.data?.message || "Unable to post comment. Please try again.");
+      return false;
+    } finally {
+      setCommentingReportId(null);
     }
   };
 
@@ -321,9 +361,9 @@ export default function Feed() {
           </section>
 
           <div className="flex flex-col gap-6">
-            {(supportError || saveError) && (
+            {(supportError || saveError || commentError) && (
               <p role="alert" className="text-sm text-red-700">
-                {supportError || saveError}
+                {supportError || saveError || commentError}
               </p>
             )}
             {reports.map((report) => (
@@ -335,6 +375,8 @@ export default function Feed() {
                 supporting={supportingReportId === report.id}
                 onSave={handleSave}
                 saving={savingReportId === report.id}
+                onComment={handleComment}
+                commenting={commentingReportId === report.id}
               />
             ))}
           </div>
