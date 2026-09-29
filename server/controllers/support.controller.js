@@ -122,9 +122,6 @@ const deleteSupport = async (req, res) => {
       user: userId,
       report: id,
     });
-    const count = await Support.countDocuments({
-      report: id,
-    });
 
     if (!deleteSupport) {
       return res.status(404).json({
@@ -132,6 +129,10 @@ const deleteSupport = async (req, res) => {
         message: "You have not supported this report",
       });
     }
+
+    const count = await Support.countDocuments({
+      report: id,
+    });
 
     return res.status(200).json({
       success: true,

@@ -1,5 +1,4 @@
 import jwt from "jsonwebtoken";
-import User from "../models/user.models.js";
 
 const protect = async (req, res, next) => {
   const authHead = req.headers.authorization;
@@ -17,12 +16,6 @@ const protect = async (req, res, next) => {
   } catch (error) {
     res.status(401).json({
       message: "Invalid Token",
-    });
-  }
-  try {
-  } catch (error) {
-    res.status(500).json({
-      message: "Server Error",
     });
   }
 };
