@@ -13,10 +13,7 @@ const Navbar = ({ user }) => {
   return (
     <header className="border-b border-stone-200 bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-6">
-        <Link
-          to={isAuthenticated ? "/feed" : "/login"}
-          className="text-xl font-black tracking-tight text-emerald-900"
-        >
+        <Link to="/feed" className="text-xl font-black tracking-tight text-emerald-900">
           Parisara
         </Link>
 

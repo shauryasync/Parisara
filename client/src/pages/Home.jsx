@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Clock, TrendingUp, MapPin, CalendarDays, Flame, Search } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import ReportCard from "../components/ReportCard";
 import api from "../services/api";
@@ -50,19 +51,24 @@ function mapReport(report) {
     location: report.placename,
     status: report.status,
     image: report.images?.[0] || null,
-    likes: report.likes?.length || 0,
+    supportCount: report.supportCount || 0,
+    supportedByCurrentUser: report.supportedByCurrentUser || false,
+    savedByCurrentUser: report.savedByCurrentUser || false,
+    commentCount: report.commentCount || 0,
     shares: 0,
     author: { name: report.reportedBy?.name || report.reportedBy?.username || "Anonymous" },
     authorId: report.reportedBy?._id,
     createdAt: report.createdAt,
-    comments: (report.comments || []).map((comment) => ({
-      author: comment.username?.name || comment.username?.username || "Community member",
-      text: comment.text,
+    comments: (report.recentComments || []).map((comment) => ({
+      id: comment._id,
+      author: comment.user?.name || comment.user?.username || "Community member",
+      text: comment.content,
     })),
   };
 }
 
 export default function Feed() {
+  const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState("nearby");
   const [activeCategories, setActiveCategories] = useState([]);
@@ -71,16 +77,23 @@ export default function Feed() {
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [supportError, setSupportError] = useState(null);
+  const [supportingReportId, setSupportingReportId] = useState(null);
+  const [saveError, setSaveError] = useState(null);
+  const [savingReportId, setSavingReportId] = useState(null);
 
   useEffect(() => {
     const loadFeed = async () => {
       try {
+        const profileRequest = localStorage.getItem("token")
+          ? api.get("/me").catch(() => null)
+          : Promise.resolve(null);
         const [profileResponse, reportsResponse] = await Promise.all([
-          api.get("/me"),
+          profileRequest,
           api.get("/reports/get-reports"),
         ]);
 
-        setCurrentUser(profileResponse.data);
+        setCurrentUser(profileResponse?.data || null);
         setRawReports((reportsResponse.data.data || []).map(mapReport));
       } catch (err) {
         setError(err.response?.data?.message || "Unable to load the feed");
@@ -91,6 +104,61 @@ export default function Feed() {
 
     loadFeed();
   }, []);
+
+  const handleSupport = async (report) => {
+    if (!currentUser) {
+      navigate("/login");
+      return;
+    }
+
+    setSupportError(null);
+    setSupportingReportId(report.id);
+
+    try {
+      const response = report.supportedByCurrentUser
+        ? await api.delete(`/reports/${report.id}/support`)
+        : await api.post(`/reports/${report.id}/support`);
+      const { count, supportedByCurrentUser } = response.data.data;
+
+      setRawReports((previousReports) =>
+        previousReports.map((item) =>
+          item.id === report.id ? { ...item, supportCount: count, supportedByCurrentUser } : item,
+        ),
+      );
+    } catch (err) {
+      setSupportError(err.response?.data?.message || "Unable to update support. Please try again.");
+    } finally {
+      setSupportingReportId(null);
+    }
+  };
+
+  const handleSave = async (report) => {
+    if (!currentUser) {
+      navigate("/login");
+      return;
+    }
+
+    setSaveError(null);
+    setSavingReportId(report.id);
+
+    try {
+      const response = report.savedByCurrentUser
+        ? await api.delete(`/reports/${report.id}/save`)
+        : await api.post(`/reports/${report.id}/save`);
+
+      const { savedByCurrentUser } = response.data.data;
+
+      setRawReports((previousReports) =>
+        previousReports.map((item) =>
+          item.id === report.id ? { ...item, savedByCurrentUser } : item,
+        ),
+      );
+    } catch (err) {
+      setSaveError(err.response?.data?.message || "Unable to update saved report.");
+    } finally {
+      setSavingReportId(null);
+    }
+  };
 
   const reports = useMemo(
     () =>
@@ -113,7 +181,7 @@ export default function Feed() {
   );
 
   const myReportCount = rawReports.filter((report) => report.authorId === currentUser?._id).length;
-  const user = currentUser || { name: "", username: "", role: "user" };
+  const user = currentUser || { name: "Guest", username: "", role: "Visitor" };
 
   if (loading) {
     return (
@@ -253,8 +321,21 @@ export default function Feed() {
           </section>
 
           <div className="flex flex-col gap-6">
+            {(supportError || saveError) && (
+              <p role="alert" className="text-sm text-red-700">
+                {supportError || saveError}
+              </p>
+            )}
             {reports.map((report) => (
-              <ReportCard key={report.id} report={report} />
+              <ReportCard
+                key={report.id}
+                report={report}
+                isAuthenticated={Boolean(currentUser)}
+                onSupport={handleSupport}
+                supporting={supportingReportId === report.id}
+                onSave={handleSave}
+                saving={savingReportId === report.id}
+              />
             ))}
           </div>
 

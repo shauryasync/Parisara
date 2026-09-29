@@ -17,7 +17,7 @@ const Login = () => {
 
       localStorage.setItem("token", res.data.token);
       alert("Login Successful...Welcome!");
-      navigate("/me");
+      navigate("/feed");
     } catch (error) {
       alert(error.response?.data?.message || "Login Failed");
     }
@@ -34,9 +34,7 @@ const Login = () => {
         <form onSubmit={loginUser} className="mt-8 mb-2">
           <div className="mb-4 flex flex-col gap-4">
             <div>
-              <label className="block mb-2 text-sm font-semibold text-slate-800">
-                Your Email
-              </label>
+              <label className="block mb-2 text-sm font-semibold text-slate-800">Your Email</label>
               <input
                 type="email"
                 value={email}
@@ -48,9 +46,7 @@ const Login = () => {
             </div>
 
             <div>
-              <label className="block mb-2 text-sm font-semibold text-slate-800">
-                Password
-              </label>
+              <label className="block mb-2 text-sm font-semibold text-slate-800">Password</label>
               <input
                 type="password"
                 value={password}

@@ -1,5 +1,14 @@
 import { useState } from "react";
-import { MapPin, ThumbsUp, MessageCircle, Share2, Send, Pencil, Trash2 } from "lucide-react";
+import {
+  MapPin,
+  ThumbsUp,
+  MessageCircle,
+  Share2,
+  Bookmark,
+  Send,
+  Pencil,
+  Trash2,
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const CATEGORY_STYLES = {
@@ -32,6 +41,8 @@ const ReportCard = ({
   isAuthenticated = Boolean(localStorage.getItem("token")),
   onSupport,
   supporting = false,
+  onSave,
+  saving = false,
 }) => {
   const navigate = useNavigate();
 
@@ -141,6 +152,19 @@ const ReportCard = ({
         <button className="flex items-center gap-1.5 text-stone-500 hover:text-emerald-700 transition">
           <MessageCircle size={16} />
           <span>{commentCount} comments</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => onSave?.(report)}
+          disabled={saving || !onSave}
+          aria-pressed={Boolean(report.savedByCurrentUser)}
+          aria-label={report.savedByCurrentUser ? "Remove saved report" : "Save report"}
+          className={`flex items-center gap-1.5 font-semibold transition disabled:opacity-60 ${
+            report.savedByCurrentUser ? "text-emerald-700" : "text-stone-500 hover:text-emerald-700"
+          }`}
+        >
+          <Bookmark size={16} fill={report.savedByCurrentUser ? "currentColor" : "none"} />
+          <span>{report.savedByCurrentUser ? "Saved" : "Save"}</span>
         </button>
         <button className="flex items-center gap-1.5 text-stone-500 hover:text-emerald-700 transition">
           <Share2 size={16} />
