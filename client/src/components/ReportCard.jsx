@@ -45,10 +45,12 @@ const ReportCard = ({
   saving = false,
   onComment,
   commenting = false,
+  readOnlyInteractions = false,
 }) => {
   const navigate = useNavigate();
 
   const [comment, setComment] = useState("");
+  const [shareMessage, setShareMessage] = useState("");
   const catStyle = CATEGORY_STYLES[report.category] || "bg-stone-100 text-stone-700";
   const authorName =
     typeof report.author?.name === "string" && report.author.name.trim()
@@ -73,6 +75,29 @@ const ReportCard = ({
   };
 
   const openComments = () => navigate(`/reports/${report.id}#comments`);
+
+  const handleShare = async () => {
+    setShareMessage("");
+    const shareData = {
+      title: report.title,
+      url: `${window.location.origin}/reports/${report.id}`,
+    };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(shareData.url);
+        setShareMessage("Link copied to clipboard.");
+      } else {
+        setShareMessage("Sharing is unavailable in this browser.");
+      }
+    } catch (shareError) {
+      if (shareError.name !== "AbortError") {
+        setShareMessage("Could not share this report.");
+      }
+    }
+  };
 
   return (
     <article className="bg-white rounded-2xl border border-stone-200 shadow-sm p-5 flex flex-col hover:shadow-md transition">
@@ -157,49 +182,81 @@ const ReportCard = ({
       </div>
 
       <div className="flex items-center justify-between py-2.5 border-y border-stone-200 text-sm mb-3">
-        <button
-          type="button"
-          onClick={() => onSupport?.(report)}
-          disabled={supporting || !onSupport}
-          aria-pressed={Boolean(report.supportedByCurrentUser)}
-          className={`flex items-center gap-1.5 font-semibold transition disabled:opacity-60 ${
-            report.supportedByCurrentUser
-              ? "text-emerald-700"
-              : "text-stone-500 hover:text-emerald-700"
-          }`}
-        >
-          <ThumbsUp size={16} fill={report.supportedByCurrentUser ? "currentColor" : "none"} />
-          <span>{supportCount} support</span>
-        </button>
-        <button
-          type="button"
-          onClick={openComments}
-          aria-label={`View ${commentCount} comments on ${report.title}`}
-          className="flex items-center gap-1.5 text-stone-500 hover:text-emerald-700 transition"
-        >
-          <MessageCircle size={16} />
-          <span>{commentCount} comments</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => onSave?.(report)}
-          disabled={saving || !onSave}
-          aria-pressed={Boolean(report.savedByCurrentUser)}
-          aria-label={report.savedByCurrentUser ? "Remove saved report" : "Save report"}
-          className={`flex items-center gap-1.5 font-semibold transition disabled:opacity-60 ${
-            report.savedByCurrentUser ? "text-emerald-700" : "text-stone-500 hover:text-emerald-700"
-          }`}
-        >
-          <Bookmark size={16} fill={report.savedByCurrentUser ? "currentColor" : "none"} />
-          <span>{report.savedByCurrentUser ? "Saved" : "Save"}</span>
-        </button>
-        <button className="flex items-center gap-1.5 text-stone-500 hover:text-emerald-700 transition">
-          <Share2 size={16} />
-          <span>{report.shares} shares</span>
-        </button>
+        {readOnlyInteractions ? (
+          <>
+            <span className="flex items-center gap-1.5 text-stone-500">
+              <ThumbsUp size={16} />
+              <span>{supportCount} support</span>
+            </span>
+            <span className="flex items-center gap-1.5 text-stone-500">
+              <MessageCircle size={16} />
+              <span>{commentCount} comments</span>
+            </span>
+            <span className="flex items-center gap-1.5 text-stone-500">
+              <Share2 size={16} />
+              <span>{report.shares || 0} shares</span>
+            </span>
+          </>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={() => onSupport?.(report)}
+              disabled={supporting || !onSupport}
+              aria-pressed={Boolean(report.supportedByCurrentUser)}
+              className={`flex items-center gap-1.5 font-semibold transition disabled:opacity-60 ${
+                report.supportedByCurrentUser
+                  ? "text-emerald-700"
+                  : "text-stone-500 hover:text-emerald-700"
+              }`}
+            >
+              <ThumbsUp size={16} fill={report.supportedByCurrentUser ? "currentColor" : "none"} />
+              <span>{supportCount} support</span>
+            </button>
+            <button
+              type="button"
+              onClick={openComments}
+              aria-label={`View ${commentCount} comments on ${report.title}`}
+              className="flex items-center gap-1.5 text-stone-500 hover:text-emerald-700 transition"
+            >
+              <MessageCircle size={16} />
+              <span>{commentCount} comments</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => onSave?.(report)}
+              disabled={saving || !onSave}
+              aria-pressed={Boolean(report.savedByCurrentUser)}
+              aria-label={report.savedByCurrentUser ? "Remove saved report" : "Save report"}
+              className={`flex items-center gap-1.5 font-semibold transition disabled:opacity-60 ${
+                report.savedByCurrentUser
+                  ? "text-emerald-700"
+                  : "text-stone-500 hover:text-emerald-700"
+              }`}
+            >
+              <Bookmark size={16} fill={report.savedByCurrentUser ? "currentColor" : "none"} />
+              <span>{report.savedByCurrentUser ? "Saved" : "Save"}</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleShare}
+              aria-label={`Share ${report.title}`}
+              className="flex items-center gap-1.5 text-stone-500 hover:text-emerald-700 transition"
+            >
+              <Share2 size={16} />
+              <span>{report.shares} shares</span>
+            </button>
+          </>
+        )}
       </div>
 
-      {comments.length > 0 && (
+      {!readOnlyInteractions && shareMessage && (
+        <p role="status" className="mb-3 text-xs text-stone-500">
+          {shareMessage}
+        </p>
+      )}
+
+      {!readOnlyInteractions && comments.length > 0 && (
         <div className="flex flex-col gap-1.5 p-3 rounded-xl bg-stone-50 mb-3 text-sm">
           {comments.slice(0, 2).map((c, i) => (
             <div key={c.id || i}>
@@ -219,7 +276,7 @@ const ReportCard = ({
         </div>
       )}
 
-      {isAuthenticated ? (
+      {!readOnlyInteractions && isAuthenticated ? (
         <form
           onSubmit={handleCommentSubmit}
           className="flex items-center gap-2 pt-2 border-t border-stone-200"
@@ -242,7 +299,7 @@ const ReportCard = ({
             <Send size={14} aria-hidden="true" />
           </button>
         </form>
-      ) : (
+      ) : !readOnlyInteractions ? (
         <button
           type="button"
           onClick={() => navigate("/login")}
@@ -250,7 +307,7 @@ const ReportCard = ({
         >
           Sign in to comment
         </button>
-      )}
+      ) : null}
     </article>
   );
 };

@@ -8,7 +8,6 @@ const Profile = () => {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  const [reports, setReports] = useState([]);
   const [myreports, setMyReports] = useState([]);
 
   function mapReport(report) {
@@ -20,14 +19,18 @@ const Profile = () => {
       location: report.placename,
       status: report.status,
       image: report.images?.[0] || null,
-      likes: report.likes?.length || 0,
+      supportCount: report.supportCount || 0,
+      supportedByCurrentUser: report.supportedByCurrentUser || false,
+      savedByCurrentUser: report.savedByCurrentUser || false,
+      commentCount: report.commentCount || 0,
       shares: 0,
       author: { name: report.reportedBy?.name || report.reportedBy?.username || "Anonymous" },
       authorId: report.reportedBy?._id,
       createdAt: report.createdAt,
-      comments: (report.comments || []).map((comment) => ({
-        author: comment.username?.name || comment.username?.username || "Community member",
-        text: comment.text,
+      comments: (report.recentComments || []).map((comment) => ({
+        id: comment._id,
+        author: comment.user?.name || comment.user?.username || "Community member",
+        text: comment.content,
       })),
     };
   }
@@ -66,8 +69,6 @@ const Profile = () => {
         const mappedReports = (reportsResponse.data.data || []).map(mapReport);
 
         setUser(userData);
-        setReports(mappedReports);
-
         const ownReports = mappedReports.filter((report) => report.authorId === userData._id);
 
         setMyReports(ownReports);
@@ -103,7 +104,13 @@ const Profile = () => {
         ) : (
           <div className="grid gap-6 md:grid-cols-2">
             {myreports.map((myreport) => (
-              <ReportCard key={myreport.id} report={myreport} canEdit onDelete={handleDelete} />
+              <ReportCard
+                key={myreport.id}
+                report={myreport}
+                canEdit
+                onDelete={handleDelete}
+                readOnlyInteractions
+              />
             ))}
           </div>
         )}

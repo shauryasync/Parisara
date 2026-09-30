@@ -122,7 +122,7 @@ const ReportDetail = () => {
     setCommentsError("");
 
     try {
-      await api.delete(`/comments/${commentId}`);
+      await api.delete(`/reports/comments/${commentId}`);
       setComments((currentComments) =>
         currentComments.filter((comment) => comment._id !== commentId),
       );
