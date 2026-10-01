@@ -41,6 +41,16 @@ const Navbar = ({ user }) => {
                 Create report
               </Link>
               <Link
+                to="/activity"
+                className={
+                  location.pathname === "/activity"
+                    ? "text-emerald-800"
+                    : "hover:text-emerald-800 transition"
+                }
+              >
+                My activity
+              </Link>
+              <Link
                 to="/me"
                 className={
                   location.pathname === "/me"

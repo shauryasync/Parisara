@@ -1,5 +1,6 @@
 import Report from "../models/report.model.js";
 import Save from "../models/save.model.js";
+import { recordActivity } from "../utils/recordActivity.js";
 
 const createNewSave = async (req, res) => {
   try {
@@ -28,6 +29,12 @@ const createNewSave = async (req, res) => {
     }
     const newSave = await Save.create({
       user: userId,
+      report: id,
+    });
+
+    await recordActivity({
+      user: userId,
+      action: "report_saved",
       report: id,
     });
 

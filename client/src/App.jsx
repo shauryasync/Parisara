@@ -6,6 +6,7 @@ import Navbar from "./components/Navbar";
 import CreateReport from "./pages/CreateReport";
 import Home from "./pages/Home";
 import ReportDetail from "./pages/ReportDetail";
+import ActivityFeed from "./components/ActivityFeed";
 
 function App() {
   const location = useLocation();
@@ -19,6 +20,7 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/me" element={<Profile />} />
+          <Route path="/activity" element={<ActivityFeed />} />
           <Route path="/feed" element={<Home />} />
           <Route path="/reports/create-report" element={<CreateReport />} />
           <Route path="/reports/:id" element={<ReportDetail />} />

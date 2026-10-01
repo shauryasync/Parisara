@@ -3,6 +3,7 @@ import { Clock, TrendingUp, MapPin, CalendarDays, Flame, Search } from "lucide-r
 import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import ReportCard from "../components/ReportCard";
+import ActivityFeed from "../components/ActivityFeed";
 import api from "../services/api";
 
 const CATEGORIES = [
@@ -83,6 +84,7 @@ export default function Feed() {
   const [savingReportId, setSavingReportId] = useState(null);
   const [commentError, setCommentError] = useState(null);
   const [commentingReportId, setCommentingReportId] = useState(null);
+  const [activityRefreshKey, setActivityRefreshKey] = useState(0);
 
   useEffect(() => {
     const loadFeed = async () => {
@@ -127,6 +129,7 @@ export default function Feed() {
           item.id === report.id ? { ...item, supportCount: count, supportedByCurrentUser } : item,
         ),
       );
+      setActivityRefreshKey((key) => key + 1);
     } catch (err) {
       setSupportError(err.response?.data?.message || "Unable to update support. Please try again.");
     } finally {
@@ -155,6 +158,7 @@ export default function Feed() {
           item.id === report.id ? { ...item, savedByCurrentUser } : item,
         ),
       );
+      setActivityRefreshKey((key) => key + 1);
     } catch (err) {
       setSaveError(err.response?.data?.message || "Unable to update saved report.");
     } finally {
@@ -191,6 +195,7 @@ export default function Feed() {
             : item,
         ),
       );
+      setActivityRefreshKey((key) => key + 1);
       return true;
     } catch (err) {
       setCommentError(err.response?.data?.message || "Unable to post comment. Please try again.");
@@ -390,6 +395,7 @@ export default function Feed() {
 
         {/* right: upcoming drives or events [future scope] */}
         <aside className="lg:col-span-3 flex flex-col gap-4 lg:sticky lg:top-20">
+          {currentUser && <ActivityFeed compact refreshKey={activityRefreshKey} />}
           <div className="bg-white rounded-2xl border border-stone-200 p-4">
             <h3 className="text-sm font-bold text-emerald-900 mb-3 flex items-center gap-2">
               <Flame size={16} className="text-emerald-700" />

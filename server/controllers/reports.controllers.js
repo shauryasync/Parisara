@@ -3,6 +3,7 @@ import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import Support from "../models/support.model.js";
 import Comment from "../models/comment.model.js";
 import Save from "../models/save.model.js";
+import { recordActivity } from "../utils/recordActivity.js";
 
 const createReport = async (req, res) => {
   try {
@@ -28,6 +29,12 @@ const createReport = async (req, res) => {
       placename,
       images: img_URL,
       reportedBy: req.user._id,
+    });
+
+    await recordActivity({
+      user: req.user._id,
+      action: "report_created",
+      report: result._id,
     });
 
     res.status(201).json({

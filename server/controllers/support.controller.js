@@ -1,5 +1,6 @@
 import Support from "../models/support.model.js";
 import Report from "../models/report.model.js";
+import { recordActivity } from "../utils/recordActivity.js";
 
 const createNewSupport = async (req, res) => {
   try {
@@ -30,6 +31,12 @@ const createNewSupport = async (req, res) => {
 
     const newSupport = await Support.create({
       user: userId,
+      report: id,
+    });
+
+    await recordActivity({
+      user: userId,
+      action: "report_supported",
       report: id,
     });
 

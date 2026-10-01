@@ -1,5 +1,6 @@
 import Comment from "../models/comment.model.js";
 import Report from "../models/report.model.js";
+import { recordActivity } from "../utils/recordActivity.js";
 
 const createNewComment = async (req, res) => {
   try {
@@ -26,6 +27,13 @@ const createNewComment = async (req, res) => {
       user: userId,
       report: id,
       content: content.trim(),
+    });
+
+    await recordActivity({
+      user: userId,
+      action: "comment_created",
+      report: id,
+      comment: newComment._id,
     });
 
     const count = await Comment.countDocuments({
