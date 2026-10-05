@@ -55,26 +55,64 @@ const createReport = async (req, res) => {
 const getReports = async (req, res) => {
   try {
     const { category, status, search } = req.query;
-    const filter = {};
+    const page = Number(req.query.page ?? 1);
+    const requestedLimit = Number(req.query.limit ?? 10);
 
-    if (category) filter.category = category;
-    if (status) filter.status = status;
+    if (
+      !Number.isSafeInteger(page) ||
+      page < 1 ||
+      !Number.isSafeInteger(requestedLimit) ||
+      requestedLimit < 1
+    ) {
+      return res.status(400).json({ success: false, message: "Invalid pagination values" });
+    }
+
+    const limit = Math.min(requestedLimit, 50);
+    const skip = (page - 1) * limit;
+
+    if (!Number.isSafeInteger(skip)) {
+      return res.status(400).json({ success: false, message: "Invalid pagination values" });
+    }
+
+    const filter = {};
+    const allowedCategories = ["pollution", "waste", "deforestation", "water", "other"];
+    const allowedStatuses = ["reported", "in-progress", "resolved"];
+    const categories =
+      category === undefined ? [] : Array.isArray(category) ? category : [category];
+    const statuses = status === undefined ? [] : Array.isArray(status) ? status : [status];
+
+    if (
+      categories.some((value) => !allowedCategories.includes(value)) ||
+      statuses.some((value) => !allowedStatuses.includes(value)) ||
+      (search !== undefined && typeof search !== "string")
+    ) {
+      return res.status(400).json({ success: false, message: "Invalid report filters" });
+    }
+
+    if (categories.length) filter.category = { $in: categories };
+    if (statuses.length) filter.status = { $in: statuses };
 
     if (search && search.trim()) {
       const query = search.trim();
-      if (query) {
-        filter.$or = [
-          { title: { $regex: query, $options: "i" } },
-          { details: { $regex: query, $options: "i" } },
-          { placename: { $regex: query, $options: "i" } },
-          { category: { $regex: query, $options: "i" } },
-        ];
-      }
+      const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      filter.$or = [
+        { title: { $regex: escapedQuery, $options: "i" } },
+        { details: { $regex: escapedQuery, $options: "i" } },
+        { placename: { $regex: escapedQuery, $options: "i" } },
+        { category: { $regex: escapedQuery, $options: "i" } },
+        { status: { $regex: escapedQuery, $options: "i" } },
+      ];
     }
 
-    const fetchedReports = await Report.find(filter)
-      .populate("reportedBy", "name username")
-      .sort({ createdAt: -1 });
+    const [fetchedReports, totalReports, myReportCount] = await Promise.all([
+      Report.find(filter)
+        .populate("reportedBy", "name username")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit),
+      Report.countDocuments(filter),
+      req.user?._id ? Report.countDocuments({ reportedBy: req.user._id }) : 0,
+    ]);
 
     const reportsWithDetails = await Promise.all(
       fetchedReports.map(async (report) => {
@@ -104,6 +142,14 @@ const getReports = async (req, res) => {
     return res.status(200).json({
       message: fetchedReports.length > 0 ? "Fetched Report" : "No Report",
       data: reportsWithDetails,
+      myReportCount,
+      pagination: {
+        currentPage: page,
+        limit,
+        totalReports,
+        totalPages: Math.ceil(totalReports / limit),
+        hasMore: skip + fetchedReports.length < totalReports,
+      },
     });
   } catch (error) {
     console.log(error);

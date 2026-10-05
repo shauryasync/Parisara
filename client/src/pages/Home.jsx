@@ -23,6 +23,7 @@ const FILTERS = [
   { label: "Recent", icon: Clock, key: "recent" },
   { label: "Trending", icon: TrendingUp, key: "trending" },
 ];
+const PAGE_SIZE = 10;
 
 // Static placeholder — swap for a GET /api/v1/zones?trending=true later.
 const TRENDING_ZONES = [
@@ -75,8 +76,13 @@ export default function Feed() {
   const [activeCategories, setActiveCategories] = useState([]);
   const [activeStatuses, setActiveStatuses] = useState([]);
   const [rawReports, setRawReports] = useState([]);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [myReportCount, setMyReportCount] = useState(0);
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isFetchingReports, setIsFetchingReports] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState(null);
   const [supportError, setSupportError] = useState(null);
   const [supportingReportId, setSupportingReportId] = useState(null);
@@ -87,27 +93,75 @@ export default function Feed() {
   const [activityRefreshKey, setActivityRefreshKey] = useState(0);
 
   useEffect(() => {
-    const loadFeed = async () => {
-      try {
-        const profileRequest = localStorage.getItem("token")
-          ? api.get("/me").catch(() => null)
-          : Promise.resolve(null);
-        const [profileResponse, reportsResponse] = await Promise.all([
-          profileRequest,
-          api.get("/reports/get-reports"),
-        ]);
+    if (!localStorage.getItem("token")) return;
 
-        setCurrentUser(profileResponse?.data || null);
-        setRawReports((reportsResponse.data.data || []).map(mapReport));
+    api
+      .get("/me")
+      .then((response) => setCurrentUser(response.data || null))
+      .catch(() => setCurrentUser(null));
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const params = new URLSearchParams();
+
+    activeCategories.forEach((category) => params.append("category", category));
+    activeStatuses.forEach((status) => params.append("status", status));
+    if (search.trim()) params.set("search", search.trim());
+    params.set("page", page);
+    params.set("limit", PAGE_SIZE);
+
+    const loadReports = async () => {
+      try {
+        setIsFetchingReports(true);
+        setLoadingMore(page > 1);
+        setError(null);
+        const response = await api.get("/reports/get-reports", {
+          params,
+          signal: controller.signal,
+        });
+        const fetchedReports = (response.data.data || []).map(mapReport);
+        setRawReports((previousReports) =>
+          page === 1 ? fetchedReports : [...previousReports, ...fetchedReports],
+        );
+        setMyReportCount(response.data.myReportCount || 0);
+        setHasMore(response.data.pagination?.hasMore || false);
       } catch (err) {
-        setError(err.response?.data?.message || "Unable to load the feed");
+        if (err.code !== "ERR_CANCELED") {
+          setError(err.response?.data?.message || "Unable to load the feed");
+        }
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) {
+          setLoading(false);
+          setIsFetchingReports(false);
+          setLoadingMore(false);
+        }
       }
     };
 
-    loadFeed();
-  }, []);
+    loadReports();
+    return () => controller.abort();
+  }, [activeCategories, activeStatuses, search, page]);
+
+  const reports = useMemo(() => {
+    const newestFirst = (first, second) =>
+      new Date(second.createdAt).getTime() - new Date(first.createdAt).getTime();
+
+    if (activeFilter === "recent") {
+      return [...rawReports].sort(newestFirst);
+    }
+
+    if (activeFilter === "trending") {
+      return [...rawReports].sort((first, second) => {
+        const engagementDifference =
+          second.supportCount + second.commentCount - (first.supportCount + first.commentCount);
+
+        return engagementDifference || newestFirst(first, second);
+      });
+    }
+
+    return rawReports;
+  }, [rawReports, activeFilter]);
 
   const handleSupport = async (report) => {
     if (!currentUser) {
@@ -205,27 +259,6 @@ export default function Feed() {
     }
   };
 
-  const reports = useMemo(
-    () =>
-      rawReports.filter((report) => {
-        const categoryMatches =
-          activeCategories.length === 0 || activeCategories.includes(report.category);
-        const statusMatches = activeStatuses.length === 0 || activeStatuses.includes(report.status);
-
-        const normalizedSearch = search.trim();
-
-        const searchMatches =
-          normalizedSearch === "" ||
-          [report.title, report.description, report.location, report.category, report.status]
-            .filter(Boolean)
-            .some((value) => value.toLowerCase().includes(normalizedSearch));
-
-        return categoryMatches && statusMatches && searchMatches;
-      }),
-    [rawReports, activeCategories, activeStatuses, search],
-  );
-
-  const myReportCount = rawReports.filter((report) => report.authorId === currentUser?._id).length;
   const user = currentUser || { name: "Guest", username: "", role: "Visitor" };
 
   if (loading) {
@@ -239,12 +272,14 @@ export default function Feed() {
   }
 
   const toggleCategory = (cat) => {
+    setPage(1);
     setActiveCategories((prev) =>
       prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat],
     );
   };
 
   const toggleStatus = (status) => {
+    setPage(1);
     setActiveStatuses((prev) =>
       prev.includes(status) ? prev.filter((s) => s !== status) : [...prev, status],
     );
@@ -337,7 +372,10 @@ export default function Feed() {
                   type="text"
                   placeholder="Search reports, places, categories..."
                   value={search}
-                  onChange={(e) => setSearch(e.target.value)}
+                  onChange={(e) => {
+                    setPage(1);
+                    setSearch(e.target.value);
+                  }}
                   className="w-full rounded-xl border border-stone-200 bg-stone-50 py-2.5 pl-9 pr-3 text-sm text-stone-700 placeholder:text-stone-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-100"
                 />
               </div>
@@ -390,6 +428,17 @@ export default function Feed() {
             <div className="text-center py-16 text-stone-400 text-sm">
               No reports yet — be the first to report an issue nearby.
             </div>
+          )}
+
+          {hasMore && reports.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setPage((currentPage) => currentPage + 1)}
+              disabled={isFetchingReports}
+              className="self-center rounded-lg border border-stone-300 bg-white px-4 py-2 text-sm font-semibold text-emerald-800 hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {loadingMore ? "Loading..." : "Load more"}
+            </button>
           )}
         </main>
 
