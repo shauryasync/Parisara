@@ -13,6 +13,7 @@ const DRIVE_TYPES = [
   "restoration",
   "other",
 ];
+
 const createDrive = async (req, res) => {
   if (!req.body || typeof req.body !== "object" || Array.isArray(req.body)) {
     return res.status(400).json({
@@ -225,10 +226,7 @@ const getDrives = async (req, res) => {
     const skip = (page - 1) * limit;
 
     const totalDrives = await Drive.countDocuments(query);
-    const drives = await Drive.find(query)
-      .sort({ startsAt: 1 })
-      .skip(skip)
-      .limit(limit);
+    const drives = await Drive.find(query).sort({ startsAt: 1 }).skip(skip).limit(limit);
 
     res.status(200).json({
       success: true,
@@ -265,18 +263,199 @@ const getDriveById = async (req, res) => {
 
     const participantCount = await DriveParticipant.countDocuments({ drive: drive._id });
 
+    let isJoined = false;
+    if (req.user) {
+      const existing = await DriveParticipant.findOne({ drive: drive._id, user: req.user._id });
+      isJoined = !!existing;
+    }
+
     res.status(200).json({
       success: true,
       data: {
         ...drive.toObject(),
-        participantCount
-      }
+        participantCount,
+        isJoined,
+      },
     });
-
   } catch (error) {
     console.error("Error fetching drive by ID:", error);
     res.status(500).json({ success: false, message: "Unable to fetch drive" });
   }
 };
 
-export { createDrive, getDrives, getDriveById };
+const joinDrive = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user._id;
+
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({ success: false, message: "Invalid Drive ID" });
+    }
+
+    const drive = await Drive.findById(id);
+    if (!drive) {
+      return res.status(404).json({ success: false, message: "Drive not found" });
+    }
+
+    if (drive.status === "completed" || drive.status === "cancelled") {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot join a drive that is ${drive.status}`,
+      });
+    }
+
+    const isOrganizer = String(drive.organizer) === String(userId);
+    const isCoOrganizer = (drive.coOrganizers || []).some(
+      (coId) => String(coId) === String(userId),
+    );
+
+    if (isOrganizer || isCoOrganizer) {
+      return res.status(400).json({
+        success: false,
+        message: "Organizers and co-organizers are already part of the drive management",
+      });
+    }
+
+    const existingParticipant = await DriveParticipant.findOne({ drive: id, user: userId });
+    if (existingParticipant) {
+      return res.status(400).json({
+        success: false,
+        message: "You have already joined this drive",
+      });
+    }
+
+    if (drive.maxParticipants) {
+      const currentCount = await DriveParticipant.countDocuments({ drive: id });
+      if (currentCount >= drive.maxParticipants) {
+        return res.status(400).json({
+          success: false,
+          message: "Drive has reached maximum participant capacity",
+        });
+      }
+    }
+
+    let newParticipant;
+    try {
+      newParticipant = await DriveParticipant.create({ drive: id, user: userId });
+    } catch (createErr) {
+      if (createErr.code === 11000) {
+        return res.status(400).json({
+          success: false,
+          message: "You have already joined this drive",
+        });
+      }
+      throw createErr;
+    }
+
+    if (drive.maxParticipants) {
+      const updatedCount = await DriveParticipant.countDocuments({ drive: id });
+      if (updatedCount > drive.maxParticipants) {
+        await DriveParticipant.deleteOne({ _id: newParticipant._id });
+        return res.status(400).json({
+          success: false,
+          message: "Drive has reached maximum participant capacity",
+        });
+      }
+    }
+
+    const finalCount = await DriveParticipant.countDocuments({ drive: id });
+
+    return res.status(200).json({
+      success: true,
+      message: "Successfully joined the drive",
+      data: {
+        participantCount: finalCount,
+        isJoined: true,
+      },
+    });
+  } catch (error) {
+    console.error("Error joining drive:", error);
+    return res.status(500).json({ success: false, message: "Unable to join drive" });
+  }
+};
+
+const leaveDrive = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user._id;
+
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({ success: false, message: "Invalid Drive ID" });
+    }
+
+    const drive = await Drive.findById(id);
+    if (!drive) {
+      return res.status(404).json({ success: false, message: "Drive not found" });
+    }
+
+    const deleted = await DriveParticipant.findOneAndDelete({ drive: id, user: userId });
+    if (!deleted) {
+      return res.status(400).json({
+        success: false,
+        message: "You are not currently a participant of this drive",
+      });
+    }
+
+    const participantCount = await DriveParticipant.countDocuments({ drive: id });
+
+    return res.status(200).json({
+      success: true,
+      message: "Successfully left the drive",
+      data: {
+        participantCount,
+        isJoined: false,
+      },
+    });
+  } catch (error) {
+    console.error("Error leaving drive:", error);
+    return res.status(500).json({ success: false, message: "Unable to leave drive" });
+  }
+};
+
+const getDriveParticipants = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({ success: false, message: "Invalid Drive ID" });
+    }
+
+    const drive = await Drive.findById(id);
+    if (!drive) {
+      return res.status(404).json({ success: false, message: "Drive not found" });
+    }
+
+    const participants = await DriveParticipant.find({ drive: id })
+      .populate("user", "name username")
+      .sort({ joinedAt: 1 });
+
+    const formattedParticipants = participants.map((p) => ({
+      _id: p._id,
+      joinedAt: p.joinedAt,
+      user: {
+        _id: p.user?._id,
+        name: p.user?.name || "Unknown",
+        username: p.user?.username || "",
+      },
+    }));
+
+    let isJoined = false;
+    if (req.user) {
+      isJoined = participants.some((p) => p.user && String(p.user._id) === String(req.user._id));
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        participants: formattedParticipants,
+        count: formattedParticipants.length,
+        isJoined,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching drive participants:", error);
+    return res.status(500).json({ success: false, message: "Unable to fetch participants" });
+  }
+};
+
+export { createDrive, getDrives, getDriveById, joinDrive, leaveDrive, getDriveParticipants };
