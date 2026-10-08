@@ -3,6 +3,7 @@ import Drive from "../models/drive.model.js";
 import Report from "../models/report.model.js";
 import Support from "../models/support.model.js";
 import User from "../models/user.models.js";
+import DriveParticipant from "../models/driveParticipant.model.js";
 
 const DRIVE_TYPES = [
   "cleanup",
@@ -209,4 +210,73 @@ const createDrive = async (req, res) => {
   }
 };
 
-export { createDrive };
+const getDrives = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 10;
+    const status = req.query.status || "upcoming";
+    const type = req.query.type;
+
+    const query = { status };
+    if (type) {
+      query.type = type;
+    }
+
+    const skip = (page - 1) * limit;
+
+    const totalDrives = await Drive.countDocuments(query);
+    const drives = await Drive.find(query)
+      .sort({ startsAt: 1 })
+      .skip(skip)
+      .limit(limit);
+
+    res.status(200).json({
+      success: true,
+      data: drives,
+      pagination: {
+        total: totalDrives,
+        page,
+        limit,
+        pages: Math.ceil(totalDrives / limit),
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching drives:", error);
+    res.status(500).json({ success: false, message: "Unable to fetch drives" });
+  }
+};
+
+const getDriveById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({ success: false, message: "Invalid Drive ID" });
+    }
+
+    const drive = await Drive.findById(id)
+      .populate("organizer", "name username")
+      .populate("coOrganizers", "name username")
+      .populate("report");
+
+    if (!drive) {
+      return res.status(404).json({ success: false, message: "Drive not found" });
+    }
+
+    const participantCount = await DriveParticipant.countDocuments({ drive: drive._id });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        ...drive.toObject(),
+        participantCount
+      }
+    });
+
+  } catch (error) {
+    console.error("Error fetching drive by ID:", error);
+    res.status(500).json({ success: false, message: "Unable to fetch drive" });
+  }
+};
+
+export { createDrive, getDrives, getDriveById };
