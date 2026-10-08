@@ -32,17 +32,18 @@ const TRENDING_ZONES = [
   { name: "Cedar Creek Greenbelt", reports: 5, priority: "Medium" },
 ];
 
-// Static placeholder — swap for a GET /api/v1/drives?upcoming=true later.
-const UPCOMING_DRIVES = [
-  { title: "Riverside Cleanup", date: "Sat, Sep 27", spots: 8 },
-  { title: "Community Sapling Plant", date: "Sun, Oct 5", spots: 15 },
-];
+
 
 const formatLabel = (value) =>
   value
     .split("-")
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
+
+const formatDriveDate = (dateString) => {
+  const date = new Date(dateString);
+  return date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+};
 
 function mapReport(report) {
   return {
@@ -91,6 +92,25 @@ export default function Feed() {
   const [commentError, setCommentError] = useState(null);
   const [commentingReportId, setCommentingReportId] = useState(null);
   const [activityRefreshKey, setActivityRefreshKey] = useState(0);
+
+  const [drives, setDrives] = useState([]);
+  const [loadingDrives, setLoadingDrives] = useState(true);
+  const [drivesError, setDrivesError] = useState(null);
+
+  useEffect(() => {
+    const fetchDrives = async () => {
+      try {
+        setLoadingDrives(true);
+        const response = await api.get("/drives?status=upcoming&limit=5");
+        setDrives(response.data.data || []);
+      } catch (err) {
+        setDrivesError("Unable to load drives");
+      } finally {
+        setLoadingDrives(false);
+      }
+    };
+    fetchDrives();
+  }, []);
 
   useEffect(() => {
     if (!localStorage.getItem("token")) return;
@@ -476,16 +496,29 @@ export default function Feed() {
               <CalendarDays size={16} className="text-emerald-700" />
               Upcoming Drives
             </h3>
-            <div className="flex flex-col gap-3">
-              {UPCOMING_DRIVES.map((drive) => (
-                <div key={drive.title} className="text-sm">
-                  <div className="font-medium text-emerald-900">{drive.title}</div>
-                  <div className="text-xs text-stone-400">
-                    {drive.date} · {drive.spots} spots open
+            {loadingDrives ? (
+              <div className="text-xs text-stone-400">Loading drives...</div>
+            ) : drivesError ? (
+              <div className="text-xs text-red-600">{drivesError}</div>
+            ) : drives.length === 0 ? (
+              <div className="text-xs text-stone-400">No upcoming drives.</div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                {drives.map((drive) => (
+                  <div
+                    key={drive._id}
+                    className="text-sm cursor-pointer hover:bg-stone-50 p-1 -mx-1 rounded transition-colors"
+                    onClick={() => navigate(`/drives/${drive._id}`)}
+                  >
+                    <div className="font-medium text-emerald-900">{drive.title}</div>
+                    <div className="text-xs text-stone-400">
+                      {formatDriveDate(drive.startsAt)}
+                      {drive.maxParticipants ? ` · ${drive.maxParticipants} max spots` : ""}
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
             <button
               type="button"
               className="w-full mt-3 py-2 text-center text-xs font-bold text-emerald-700 hover:underline"
