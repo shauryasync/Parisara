@@ -4,6 +4,20 @@ import Report from "../models/report.model.js";
 import Support from "../models/support.model.js";
 import User from "../models/user.models.js";
 import DriveParticipant from "../models/driveParticipant.model.js";
+import DriveComment from "../models/driveComment.model.js";
+
+const getDerivedStatus = (drive) => {
+  if (!drive) return "upcoming";
+  if (drive.status === "completed" || drive.status === "cancelled") {
+    return drive.status;
+  }
+  const now = new Date();
+  const start = new Date(drive.startsAt);
+  if (now >= start) {
+    return "ongoing";
+  }
+  return "upcoming";
+};
 
 const DRIVE_TYPES = [
   "cleanup",
@@ -269,10 +283,13 @@ const getDriveById = async (req, res) => {
       isJoined = !!existing;
     }
 
+    const driveObj = drive.toObject();
+    driveObj.status = getDerivedStatus(drive);
+
     res.status(200).json({
       success: true,
       data: {
-        ...drive.toObject(),
+        ...driveObj,
         participantCount,
         isJoined,
       },
@@ -458,4 +475,452 @@ const getDriveParticipants = async (req, res) => {
   }
 };
 
-export { createDrive, getDrives, getDriveById, joinDrive, leaveDrive, getDriveParticipants };
+const editDrive = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = String(req.user._id);
+
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({ success: false, message: "Invalid Drive ID" });
+    }
+
+    const drive = await Drive.findById(id);
+    if (!drive) {
+      return res.status(404).json({ success: false, message: "Drive not found" });
+    }
+
+    const isOrganizer = String(drive.organizer) === userId;
+    const isCoOrganizer = drive.coOrganizers.some((coId) => String(coId) === userId);
+
+    if (!isOrganizer && !isCoOrganizer) {
+      return res.status(403).json({
+        success: false,
+        message: "You do not have permission to edit this drive",
+      });
+    }
+
+    const allowedUpdates = [
+      "title",
+      "type",
+      "description",
+      "startsAt",
+      "endsAt",
+      "issueLocation",
+      "meetingPoint",
+      "maxParticipants",
+      "organizerNote",
+      "requiredMaterials",
+      "contactInformation",
+    ];
+
+    const updates = {};
+    for (const key of Object.keys(req.body)) {
+      if (allowedUpdates.includes(key)) {
+        updates[key] = req.body[key];
+      }
+    }
+
+    if (updates.startsAt || updates.endsAt) {
+      const start = updates.startsAt ? new Date(updates.startsAt) : drive.startsAt;
+      const end = updates.endsAt ? new Date(updates.endsAt) : drive.endsAt;
+      if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) {
+        return res.status(400).json({
+          success: false,
+          message: "End date must be valid and after the start date",
+        });
+      }
+    }
+
+    if (updates.maxParticipants !== undefined && updates.maxParticipants !== null) {
+      if (!Number.isInteger(updates.maxParticipants) || updates.maxParticipants < 1) {
+        return res.status(400).json({
+          success: false,
+          message: "Maximum participants must be a positive whole number",
+        });
+      }
+    }
+
+    if (updates.requiredMaterials !== undefined) {
+      if (!Array.isArray(updates.requiredMaterials) || updates.requiredMaterials.some(m => typeof m !== 'string' || !m.trim())) {
+        return res.status(400).json({
+          success: false,
+          message: "Required materials must be an array of non-empty strings",
+        });
+      }
+      updates.requiredMaterials = updates.requiredMaterials.map(m => m.trim());
+    }
+
+    for (const [key, value] of Object.entries(updates)) {
+      if (['title', 'description', 'meetingPoint', 'issueLocation', 'organizerNote', 'contactInformation'].includes(key)) {
+         if (value !== undefined && value !== null) {
+            updates[key] = value.trim();
+         }
+      }
+    }
+
+    Object.assign(drive, updates);
+    await drive.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Drive updated successfully",
+      data: drive,
+    });
+  } catch (error) {
+    console.error("Error editing drive:", error);
+    if (error.name === "ValidationError") {
+       return res.status(400).json({ success: false, message: "Invalid Drive data", error: error.message });
+    }
+    return res.status(500).json({ success: false, message: "Unable to edit drive" });
+  }
+};
+
+const addCoOrganizer = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { userId: targetUserId } = req.body;
+    const requestUserId = String(req.user._id);
+
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({ success: false, message: "Invalid Drive ID" });
+    }
+    if (!mongoose.isValidObjectId(targetUserId)) {
+      return res.status(400).json({ success: false, message: "Invalid Target User ID" });
+    }
+
+    const drive = await Drive.findById(id);
+    if (!drive) {
+      return res.status(404).json({ success: false, message: "Drive not found" });
+    }
+
+    const isOrganizer = String(drive.organizer) === requestUserId;
+    const isCoOrganizer = drive.coOrganizers.some((coId) => String(coId) === requestUserId);
+
+    if (!isOrganizer && !isCoOrganizer) {
+      return res.status(403).json({
+        success: false,
+        message: "You do not have permission to manage co-organizers",
+      });
+    }
+
+    const targetUserExists = await User.exists({ _id: targetUserId });
+    if (!targetUserExists) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    if (String(drive.organizer) === String(targetUserId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Primary organizer cannot be added as a co-organizer",
+      });
+    }
+
+    if (drive.coOrganizers.some(c => String(c) === String(targetUserId))) {
+      return res.status(400).json({
+        success: false,
+        message: "User is already a co-organizer",
+      });
+    }
+
+    if (drive.coOrganizers.length >= 2) {
+      return res.status(400).json({
+        success: false,
+        message: "Maximum of 2 co-organizers allowed",
+      });
+    }
+
+    drive.coOrganizers.push(targetUserId);
+    await drive.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Co-organizer added successfully",
+      data: drive.coOrganizers,
+    });
+  } catch (error) {
+    console.error("Error adding co-organizer:", error);
+    return res.status(500).json({ success: false, message: "Unable to add co-organizer" });
+  }
+};
+
+const removeCoOrganizer = async (req, res) => {
+  try {
+    const { id, userId: targetUserId } = req.params;
+    const requestUserId = String(req.user._id);
+
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({ success: false, message: "Invalid Drive ID" });
+    }
+    if (!mongoose.isValidObjectId(targetUserId)) {
+      return res.status(400).json({ success: false, message: "Invalid Target User ID" });
+    }
+
+    const drive = await Drive.findById(id);
+    if (!drive) {
+      return res.status(404).json({ success: false, message: "Drive not found" });
+    }
+
+    const isOrganizer = String(drive.organizer) === requestUserId;
+    const isCoOrganizer = drive.coOrganizers.some((coId) => String(coId) === requestUserId);
+
+    if (!isOrganizer && !isCoOrganizer) {
+      return res.status(403).json({
+        success: false,
+        message: "You do not have permission to manage co-organizers",
+      });
+    }
+
+    if (String(drive.organizer) === String(targetUserId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Primary organizer cannot be removed",
+      });
+    }
+
+    const isTargetCoOrganizer = drive.coOrganizers.some(c => String(c) === String(targetUserId));
+    if (!isTargetCoOrganizer) {
+      return res.status(400).json({
+        success: false,
+        message: "User is not a co-organizer",
+      });
+    }
+
+    drive.coOrganizers = drive.coOrganizers.filter(c => String(c) !== String(targetUserId));
+    await drive.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Co-organizer removed successfully",
+      data: drive.coOrganizers,
+    });
+  } catch (error) {
+    console.error("Error removing co-organizer:", error);
+    return res.status(500).json({ success: false, message: "Unable to remove co-organizer" });
+  }
+};
+
+const cancelDrive = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = String(req.user._id);
+
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({ success: false, message: "Invalid Drive ID" });
+    }
+
+    const drive = await Drive.findById(id);
+    if (!drive) {
+      return res.status(404).json({ success: false, message: "Drive not found" });
+    }
+
+    const isOrganizer = String(drive.organizer) === userId;
+    const isCoOrganizer = (drive.coOrganizers || []).some((coId) => String(coId) === userId);
+
+    if (!isOrganizer && !isCoOrganizer) {
+      return res.status(403).json({
+        success: false,
+        message: "You do not have permission to cancel this drive",
+      });
+    }
+
+    if (drive.status === "cancelled" || drive.status === "completed") {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot cancel a drive that is already ${drive.status}`,
+      });
+    }
+
+    const derivedStatus = getDerivedStatus(drive);
+    if (derivedStatus !== "upcoming") {
+      return res.status(400).json({
+        success: false,
+        message: "Only upcoming drives can be cancelled",
+      });
+    }
+
+    drive.status = "cancelled";
+    await drive.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Drive cancelled successfully",
+      data: drive,
+    });
+  } catch (error) {
+    console.error("Error cancelling drive:", error);
+    return res.status(500).json({ success: false, message: "Unable to cancel drive" });
+  }
+};
+
+const completeDrive = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = String(req.user._id);
+
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({ success: false, message: "Invalid Drive ID" });
+    }
+
+    const drive = await Drive.findById(id);
+    if (!drive) {
+      return res.status(404).json({ success: false, message: "Drive not found" });
+    }
+
+    const isOrganizer = String(drive.organizer) === userId;
+    const isCoOrganizer = (drive.coOrganizers || []).some((coId) => String(coId) === userId);
+
+    if (!isOrganizer && !isCoOrganizer) {
+      return res.status(403).json({
+        success: false,
+        message: "You do not have permission to complete this drive",
+      });
+    }
+
+    if (drive.status === "completed" || drive.status === "cancelled") {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot complete a drive that is already ${drive.status}`,
+      });
+    }
+
+    const now = new Date();
+    if (now < new Date(drive.startsAt)) {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot complete a drive before its start time",
+      });
+    }
+
+    drive.status = "completed";
+    drive.completedAt = new Date();
+    drive.completedBy = req.user._id;
+
+    if (req.body && typeof req.body.outcome === "string" && req.body.outcome.trim()) {
+      drive.outcome = req.body.outcome.trim();
+    }
+
+    await drive.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Drive completed successfully",
+      data: drive,
+    });
+  } catch (error) {
+    console.error("Error completing drive:", error);
+    return res.status(500).json({ success: false, message: "Unable to complete drive" });
+  }
+};
+
+const getDriveComments = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({ success: false, message: "Invalid Drive ID" });
+    }
+
+    const driveExists = await Drive.exists({ _id: id });
+    if (!driveExists) {
+      return res.status(404).json({ success: false, message: "Drive not found" });
+    }
+
+    const comments = await DriveComment.find({ drive: id })
+      .populate("user", "name username")
+      .sort({ createdAt: 1 });
+
+    return res.status(200).json({
+      success: true,
+      data: comments,
+    });
+  } catch (error) {
+    console.error("Error fetching drive comments:", error);
+    return res.status(500).json({ success: false, message: "Unable to fetch comments" });
+  }
+};
+
+const createDriveComment = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { content } = req.body || {};
+
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({ success: false, message: "Invalid Drive ID" });
+    }
+
+    if (typeof content !== "string" || !content.trim()) {
+      return res.status(400).json({ success: false, message: "Comment content is required" });
+    }
+
+    const driveExists = await Drive.exists({ _id: id });
+    if (!driveExists) {
+      return res.status(404).json({ success: false, message: "Drive not found" });
+    }
+
+    const comment = await DriveComment.create({
+      drive: id,
+      user: req.user._id,
+      content: content.trim(),
+    });
+
+    await comment.populate("user", "name username");
+
+    return res.status(201).json({
+      success: true,
+      message: "Comment added successfully",
+      data: comment,
+    });
+  } catch (error) {
+    console.error("Error creating drive comment:", error);
+    return res.status(500).json({ success: false, message: "Unable to create comment" });
+  }
+};
+
+const deleteDriveComment = async (req, res) => {
+  try {
+    const { commentId } = req.params;
+
+    if (!mongoose.isValidObjectId(commentId)) {
+      return res.status(400).json({ success: false, message: "Invalid Comment ID" });
+    }
+
+    const comment = await DriveComment.findById(commentId);
+    if (!comment) {
+      return res.status(404).json({ success: false, message: "Comment not found" });
+    }
+
+    if (String(comment.user._id || comment.user) !== String(req.user._id)) {
+      return res.status(403).json({
+        success: false,
+        message: "Only the comment author can delete their comment",
+      });
+    }
+
+    await DriveComment.deleteOne({ _id: commentId });
+
+    return res.status(200).json({
+      success: true,
+      message: "Comment deleted successfully",
+    });
+  } catch (error) {
+    console.error("Error deleting drive comment:", error);
+    return res.status(500).json({ success: false, message: "Unable to delete comment" });
+  }
+};
+
+export {
+  createDrive,
+  getDrives,
+  getDriveById,
+  joinDrive,
+  leaveDrive,
+  getDriveParticipants,
+  editDrive,
+  addCoOrganizer,
+  removeCoOrganizer,
+  cancelDrive,
+  completeDrive,
+  getDriveComments,
+  createDriveComment,
+  deleteDriveComment,
+};
