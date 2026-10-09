@@ -14,6 +14,27 @@ const DRIVE_TYPES = [
 
 const OBJECT_ID_PATTERN = /^[a-f\d]{24}$/i;
 
+const toLocalDateTimeValue = (date) =>
+  new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+
+const parseLocalDateTime = (value) => {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(value);
+  if (!match) return null;
+
+  const [year, month, day, hour, minute] = match.slice(1).map(Number);
+  const date = new Date(year, month - 1, day, hour, minute);
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day ||
+    date.getHours() !== hour ||
+    date.getMinutes() !== minute
+  ) {
+    return null;
+  }
+  return date;
+};
+
 export default function CreateDrive() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -37,6 +58,7 @@ export default function CreateDrive() {
 
   const handleChange = (event) => {
     const { name, value } = event.target;
+    setError("");
     setFormData((current) => ({ ...current, [name]: value }));
   };
 
@@ -54,13 +76,13 @@ export default function CreateDrive() {
       return;
     }
 
-    const startsAt = new Date(formData.startsAt);
-    const endsAt = new Date(formData.endsAt);
-    if (Number.isNaN(startsAt.getTime()) || startsAt <= new Date()) {
-      setError("Choose a valid start date and time in the future.");
+    const startsAt = parseLocalDateTime(formData.startsAt);
+    const endsAt = parseLocalDateTime(formData.endsAt);
+    if (!startsAt || startsAt <= new Date()) {
+      setError("The start date and time must be in the future.");
       return;
     }
-    if (Number.isNaN(endsAt.getTime()) || endsAt <= startsAt) {
+    if (!endsAt || endsAt <= startsAt) {
       setError("The end date and time must be after the start date and time.");
       return;
     }
@@ -129,6 +151,15 @@ export default function CreateDrive() {
   const fieldClassName =
     "w-full rounded-lg border border-stone-300 px-4 py-3 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20";
   const labelClassName = "mb-2 block text-sm font-semibold text-stone-800";
+  const earliestStart = new Date();
+  earliestStart.setMinutes(earliestStart.getMinutes() + 1, 0, 0);
+  const minStart = toLocalDateTimeValue(earliestStart);
+  const selectedStart = parseLocalDateTime(formData.startsAt);
+  const earliestEnd =
+    selectedStart && selectedStart >= earliestStart
+      ? new Date(selectedStart.getTime() + 60000)
+      : earliestStart;
+  const minEnd = toLocalDateTimeValue(earliestEnd);
 
   return (
     <div className="min-h-screen bg-stone-50 text-stone-900">
@@ -242,6 +273,8 @@ export default function CreateDrive() {
                   name="startsAt"
                   type="datetime-local"
                   value={formData.startsAt}
+                  min={minStart}
+                  step="60"
                   onChange={handleChange}
                   className={fieldClassName}
                   required
@@ -258,6 +291,8 @@ export default function CreateDrive() {
                   name="endsAt"
                   type="datetime-local"
                   value={formData.endsAt}
+                  min={minEnd}
+                  step="60"
                   onChange={handleChange}
                   className={fieldClassName}
                   required

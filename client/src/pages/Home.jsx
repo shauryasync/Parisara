@@ -96,21 +96,32 @@ export default function Feed() {
   const [drives, setDrives] = useState([]);
   const [loadingDrives, setLoadingDrives] = useState(true);
   const [drivesError, setDrivesError] = useState(null);
+  const isAuthenticated = Boolean(localStorage.getItem("token"));
 
   useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const controller = new AbortController();
     const fetchDrives = async () => {
       try {
         setLoadingDrives(true);
-        const response = await api.get("/drives?status=upcoming&limit=5");
+        setDrivesError(null);
+        const response = await api.get("/drives", {
+          params: { status: "upcoming", joined: true, limit: 5 },
+          signal: controller.signal,
+        });
         setDrives(response.data.data || []);
-      } catch {
-        setDrivesError("Unable to load drives");
+      } catch (requestError) {
+        if (requestError.code !== "ERR_CANCELED") {
+          setDrivesError(requestError.response?.data?.message || "Unable to load your Drives");
+        }
       } finally {
-        setLoadingDrives(false);
+        if (!controller.signal.aborted) setLoadingDrives(false);
       }
     };
     fetchDrives();
-  }, []);
+    return () => controller.abort();
+  }, [isAuthenticated]);
 
   useEffect(() => {
     if (!localStorage.getItem("token")) return;
@@ -494,28 +505,35 @@ export default function Feed() {
           <div className="bg-white rounded-2xl border border-stone-200 p-4">
             <h3 className="text-sm font-bold text-emerald-900 mb-3 flex items-center gap-2">
               <CalendarDays size={16} className="text-emerald-700" />
-              Upcoming Drives
+              Your Upcoming Drives
             </h3>
-            {loadingDrives ? (
+            {!isAuthenticated ? (
+              <div className="text-xs text-stone-500">
+                <Link to="/login" className="font-semibold text-emerald-700 hover:underline">
+                  Sign in
+                </Link>{" "}
+                to see the Drives you have joined.
+              </div>
+            ) : loadingDrives ? (
               <div className="text-xs text-stone-400">Loading drives...</div>
             ) : drivesError ? (
               <div className="text-xs text-red-600">{drivesError}</div>
             ) : drives.length === 0 ? (
-              <div className="text-xs text-stone-400">No upcoming drives.</div>
+              <div className="text-xs text-stone-400">You haven&apos;t joined any upcoming Drives.</div>
             ) : (
               <div className="flex flex-col gap-3">
                 {drives.map((drive) => (
-                  <div
+                  <Link
                     key={drive._id}
+                    to={`/drives/${drive._id}`}
                     className="text-sm cursor-pointer hover:bg-stone-50 p-1 -mx-1 rounded transition-colors"
-                    onClick={() => navigate(`/drives/${drive._id}`)}
                   >
                     <div className="font-medium text-emerald-900">{drive.title}</div>
                     <div className="text-xs text-stone-400">
                       {formatDriveDate(drive.startsAt)}
                       {drive.maxParticipants ? ` · ${drive.maxParticipants} max spots` : ""}
                     </div>
-                  </div>
+                  </Link>
                 ))}
               </div>
             )}

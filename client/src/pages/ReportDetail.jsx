@@ -19,6 +19,9 @@ const ReportDetail = () => {
   const [submittingComment, setSubmittingComment] = useState(false);
   const [deletingCommentId, setDeletingCommentId] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
+  const [linkedDrives, setLinkedDrives] = useState([]);
+  const [linkedDrivesLoading, setLinkedDrivesLoading] = useState(true);
+  const [linkedDrivesError, setLinkedDrivesError] = useState("");
 
   const navigate = useNavigate();
 
@@ -40,6 +43,55 @@ const ReportDetail = () => {
     };
 
     loadReport();
+  }, [id]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const loadLinkedDrives = async () => {
+      setLinkedDrivesLoading(true);
+      setLinkedDrivesError("");
+      setLinkedDrives([]);
+
+      try {
+        const loadDrivesForStatus = async (status) => {
+          const params = { report: id, status, limit: 50, page: 1 };
+          const firstPage = await api.get("/drives", { params });
+          const pageCount = firstPage.data.pagination?.pages || 1;
+          const remainingPages = await Promise.all(
+            Array.from({ length: Math.max(0, pageCount - 1) }, (_, index) =>
+              api.get("/drives", { params: { ...params, page: index + 2 } }),
+            ),
+          );
+          return [firstPage, ...remainingPages].flatMap(
+            (response) => response.data.data || [],
+          );
+        };
+        const responses = await Promise.all(
+          ["upcoming", "ongoing"].map(loadDrivesForStatus),
+        );
+        if (isActive) {
+          setLinkedDrives(
+            responses
+              .flat()
+              .sort((first, second) => new Date(first.startsAt) - new Date(second.startsAt)),
+          );
+        }
+      } catch (requestError) {
+        if (isActive) {
+          setLinkedDrivesError(
+            requestError.response?.data?.message || "Could not load Drives linked to this report.",
+          );
+        }
+      } finally {
+        if (isActive) setLinkedDrivesLoading(false);
+      }
+    };
+
+    loadLinkedDrives();
+    return () => {
+      isActive = false;
+    };
   }, [id]);
 
   useEffect(() => {
@@ -290,6 +342,66 @@ const ReportDetail = () => {
               <p className="mt-3 whitespace-pre-line text-sm leading-6 text-stone-600">
                 {report.details}
               </p>
+            </section>
+
+            <section
+              className="rounded-lg border border-stone-200 bg-white p-5 sm:p-6"
+              aria-labelledby="linked-drives-heading"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 id="linked-drives-heading" className="text-lg font-semibold text-stone-900">
+                    Upcoming and ongoing Drives
+                  </h2>
+                  <p className="mt-1 text-sm text-stone-500">
+                    Community actions organized in response to this report.
+                  </p>
+                </div>
+                <Link
+                  to={`/drives/create?report=${encodeURIComponent(id)}`}
+                  className="inline-flex min-h-10 items-center justify-center rounded-md bg-emerald-800 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
+                >
+                  Start a Drive for this report
+                </Link>
+              </div>
+
+              {report.supportCount < 5 && (
+                <p className="mt-3 text-sm text-stone-600">
+                  This report needs at least five supports before a linked Drive can be created.
+                </p>
+              )}
+              {linkedDrivesError ? (
+                <p role="alert" className="mt-4 text-sm text-red-700">
+                  {linkedDrivesError}
+                </p>
+              ) : linkedDrivesLoading ? (
+                <p role="status" className="mt-4 text-sm text-stone-500">
+                  Loading linked Drives...
+                </p>
+              ) : linkedDrives.length === 0 ? (
+                <p className="mt-4 text-sm text-stone-500">
+                  No upcoming or ongoing Drives are linked to this report yet.
+                </p>
+              ) : (
+                <ul className="mt-4 divide-y divide-stone-200">
+                  {linkedDrives.map((drive) => (
+                    <li key={drive._id} className="py-3 first:pt-0 last:pb-0">
+                      <Link
+                        to={`/drives/${drive._id}`}
+                        className="block rounded-md hover:bg-stone-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700"
+                      >
+                        <span className="font-semibold text-emerald-900">{drive.title}</span>
+                        <span className="ml-2 rounded-full bg-stone-100 px-2 py-0.5 text-xs font-semibold capitalize text-stone-700">
+                          {drive.status}
+                        </span>
+                        <span className="mt-1 block text-sm text-stone-600">
+                          {new Date(drive.startsAt).toLocaleString()} · {drive.meetingPoint}
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </section>
 
             <section

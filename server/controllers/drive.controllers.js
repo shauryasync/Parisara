@@ -6,12 +6,11 @@ import User from "../models/user.models.js";
 import DriveParticipant from "../models/driveParticipant.model.js";
 import DriveComment from "../models/driveComment.model.js";
 
-const getDerivedStatus = (drive) => {
+const getDerivedStatus = (drive, now = new Date()) => {
   if (!drive) return "upcoming";
   if (drive.status === "completed" || drive.status === "cancelled") {
     return drive.status;
   }
-  const now = new Date();
   const start = new Date(drive.startsAt);
   if (now >= start) {
     return "ongoing";
@@ -82,7 +81,21 @@ const createDrive = async (req, res) => {
 
   const start = new Date(startsAt);
   const end = new Date(endsAt);
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) {
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    return res.status(400).json({
+      success: false,
+      message: "Start and end dates must be valid",
+    });
+  }
+
+  if (start <= new Date()) {
+    return res.status(400).json({
+      success: false,
+      message: "The start date and time must be in the future",
+    });
+  }
+
+  if (end <= start) {
     return res.status(400).json({
       success: false,
       message: "End date must be valid and after the start date",
@@ -231,10 +244,36 @@ const getDrives = async (req, res) => {
     const limit = parseInt(req.query.limit, 10) || 10;
     const status = req.query.status || "upcoming";
     const type = req.query.type;
+    const report = req.query.report;
+    const joinedOnly = req.query.joined === "true";
+    const now = new Date();
 
-    const query = { status };
+    const query = {};
+    if (status === "upcoming" || status === "ongoing") {
+      query.status = { $nin: ["completed", "cancelled"] };
+      query.startsAt = status === "upcoming" ? { $gt: now } : { $lte: now };
+    } else {
+      query.status = status;
+    }
     if (type) {
       query.type = type;
+    }
+    if (report !== undefined) {
+      if (typeof report !== "string" || !mongoose.isValidObjectId(report)) {
+        return res.status(400).json({ success: false, message: "Invalid Report ID" });
+      }
+      query.report = report;
+    }
+    if (joinedOnly) {
+      if (!req.user) {
+        return res.status(401).json({
+          success: false,
+          message: "Sign in to view Drives you have joined",
+        });
+      }
+
+      const joinedDriveIds = await DriveParticipant.distinct("drive", { user: req.user._id });
+      query._id = { $in: joinedDriveIds };
     }
 
     const skip = (page - 1) * limit;
@@ -244,7 +283,11 @@ const getDrives = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      data: drives,
+      data: drives.map((drive) => {
+        const driveObj = drive.toObject();
+        driveObj.status = getDerivedStatus(drive, now);
+        return driveObj;
+      }),
       pagination: {
         total: totalDrives,
         page,
@@ -536,6 +579,15 @@ const editDrive = async (req, res) => {
         return res.status(400).json({
           success: false,
           message: "Maximum participants must be a positive whole number",
+        });
+      }
+
+      const participantCount = await DriveParticipant.countDocuments({ drive: id });
+      if (updates.maxParticipants < participantCount) {
+        return res.status(400).json({
+          success: false,
+          message: "Maximum participants cannot be lower than the current participant count",
+          participantCount,
         });
       }
     }
