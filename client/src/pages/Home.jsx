@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Clock, TrendingUp, MapPin, CalendarDays, Flame, Search } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import ReportCard from "../components/ReportCard";
 import ActivityFeed from "../components/ActivityFeed";
@@ -103,7 +103,7 @@ export default function Feed() {
         setLoadingDrives(true);
         const response = await api.get("/drives?status=upcoming&limit=5");
         setDrives(response.data.data || []);
-      } catch (err) {
+      } catch {
         setDrivesError("Unable to load drives");
       } finally {
         setLoadingDrives(false);
@@ -519,12 +519,12 @@ export default function Feed() {
                 ))}
               </div>
             )}
-            <button
-              type="button"
-              className="w-full mt-3 py-2 text-center text-xs font-bold text-emerald-700 hover:underline"
+            <Link
+              to="/drives"
+              className="block w-full mt-3 py-2 text-center text-xs font-bold text-emerald-700 hover:underline"
             >
               View all drives →
-            </button>
+            </Link>
           </div>
         </aside>
       </div>
