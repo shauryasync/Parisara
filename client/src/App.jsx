@@ -7,6 +7,7 @@ import CreateReport from "./pages/CreateReport";
 import Home from "./pages/Home";
 import ReportDetail from "./pages/ReportDetail";
 import DriveDetail from "./pages/DriveDetail";
+import CreateDrive from "./pages/CreateDrive";
 import ActivityFeed from "./components/ActivityFeed";
 
 function App() {
@@ -26,6 +27,7 @@ function App() {
           <Route path="/reports/create-report" element={<CreateReport />} />
           <Route path="/reports/:id" element={<ReportDetail />} />
           <Route path="/reports/:id/edit" element={<CreateReport />} />
+          <Route path="/drives/create" element={<CreateDrive />} />
           <Route path="/drives/:id" element={<DriveDetail />} />
         </Routes>
       </main>

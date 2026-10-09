@@ -41,6 +41,16 @@ const Navbar = ({ user }) => {
                 Create report
               </Link>
               <Link
+                to="/drives/create"
+                className={
+                  location.pathname === "/drives/create"
+                    ? "text-emerald-800"
+                    : "hover:text-emerald-800 transition"
+                }
+              >
+                Start a Drive
+              </Link>
+              <Link
                 to="/activity"
                 className={
                   location.pathname === "/activity"
@@ -80,6 +90,9 @@ const Navbar = ({ user }) => {
           </>
         ) : (
           <div className="flex items-center gap-4 text-sm font-semibold">
+            <Link to="/drives/create" className="text-emerald-700 hover:text-emerald-900 transition">
+              Start a Drive
+            </Link>
             <Link to="/login" className="text-stone-600 hover:text-emerald-800 transition">
               Sign in
             </Link>
