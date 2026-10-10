@@ -1,6 +1,7 @@
 import Login from "./pages/Login";
 import Profile from "./pages/Profile";
 import Register from "./pages/Register";
+import VerifyEmail from "./pages/VerifyEmail";
 import { Route, Routes, Navigate, useLocation } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import CreateReport from "./pages/CreateReport";
@@ -22,6 +23,7 @@ function App() {
           <Route path="/" element={<Navigate to="/feed" replace />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/verify-email" element={<VerifyEmail />} />
           <Route path="/me" element={<Profile />} />
           <Route path="/activity" element={<ActivityFeed />} />
           <Route path="/feed" element={<Home />} />

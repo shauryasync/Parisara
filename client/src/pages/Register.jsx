@@ -13,13 +13,13 @@ const Register = () => {
     e.preventDefault();
 
     try {
-      await api.post("/register", {
+      const response = await api.post("/register", {
         name,
         username,
         email,
         password,
       });
-      alert("Registration Successful");
+      alert(response.data.message || "Registration Successful");
       navigate("/login");
     } catch (error) {
       alert(error.response?.data?.message || "Registration Failed");

@@ -41,3 +41,8 @@ build/Release
 # Dependency directories
 node_modules/
 .env
+
+
+BACKEND_NOTES.md
+
+Tasks.txt

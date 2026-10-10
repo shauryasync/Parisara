@@ -1,14 +1,25 @@
 import bcrypt from "bcrypt";
+import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import User from "../models/user.models.js";
+import { sendVerificationEmail } from "../utils/sendVerifyEmail.js";
+
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const registerUser = async (req, res) => {
   try {
-    const { name, username, email, password } = req.body;
+    const { name, username, password } = req.body;
+    const email = req.body.email?.trim().toLowerCase();
 
     if (!name || !email || !password || !username) {
       return res.status(400).json({
         message: "Required Field!",
+      });
+    }
+
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({
+        message: "Invalid email format",
       });
     }
 
@@ -21,22 +32,40 @@ const registerUser = async (req, res) => {
     const isUserExist = await User.findOne({ email });
 
     if (isUserExist) {
+      if (!isUserExist.isVerified) {
+        const verificationToken = crypto.randomBytes(32).toString("hex");
+        isUserExist.verificationToken = verificationToken;
+        isUserExist.verificationTokenExpires = Date.now() + 24 * 60 * 60 * 1000;
+        await isUserExist.save();
+        await sendVerificationEmail(isUserExist.email, verificationToken);
+
+        return res.status(200).json({
+          message: "Verification email sent. Please check your email to verify your account.",
+        });
+      }
+
       return res.status(400).json({
-        message: "Email already exits",
+        message: "Email already exists",
       });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
+    const verificationToken = crypto.randomBytes(32).toString("hex");
 
     const newUser = await User.create({
       name,
       username,
       email,
       password: hashedPassword,
+      isVerified: false,
+      verificationToken,
+      verificationTokenExpires: Date.now() + 24 * 60 * 60 * 1000,
     });
 
+    await sendVerificationEmail(newUser.email, verificationToken);
+
     res.status(201).json({
-      message: "User registered successfully",
+      message: "User registered successfully. Please check your email to verify your account.",
       name: newUser.name,
       username: newUser.username,
       email: newUser.email,
@@ -49,13 +78,49 @@ const registerUser = async (req, res) => {
   }
 };
 
+const verifyEmail = async (req, res) => {
+  try {
+    const { token } = req.query;
+
+    if (!token) {
+      return res.status(400).json({ message: "Verification token is required" });
+    }
+
+    const user = await User.findOne({
+      verificationToken: token,
+      verificationTokenExpires: { $gt: Date.now() },
+    });
+
+    if (!user) {
+      return res.status(400).json({ message: "Invalid or expired verification token" });
+    }
+
+    user.isVerified = true;
+    user.verificationToken = undefined;
+    user.verificationTokenExpires = undefined;
+    await user.save();
+
+    res.status(200).json({ message: "Email verified successfully. You can now log in." });
+  } catch (error) {
+    console.error("Error verifying email:", error);
+    return res.status(500).json({ message: "Server Error" });
+  }
+};
+
 const loginUser = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { password } = req.body;
+    const email = req.body.email?.trim().toLowerCase();
 
     if (!email || !password) {
       return res.status(400).json({
         message: "Required Fields",
+      });
+    }
+
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({
+        message: "Invalid email format",
       });
     }
 
@@ -72,6 +137,12 @@ const loginUser = async (req, res) => {
     if (!isMatch) {
       return res.status(400).json({
         message: "Invalid Password",
+      });
+    }
+
+    if (!user.isVerified) {
+      return res.status(403).json({
+        message: "Please verify your email address before logging in.",
       });
     }
 
@@ -127,4 +198,5 @@ const getProfile = async (req, res) => {
     res.status(401).json({ message: "Token Expired" });
   }
 };
-export { registerUser, loginUser, getProfile };
+
+export { registerUser, verifyEmail, loginUser, getProfile };

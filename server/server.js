@@ -2,6 +2,8 @@ import express from "express";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 import cors from "cors";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { router as userRouter } from "./routes/userRoutes.js";
 import { router as reportRouter } from "./routes/report.routes.js";
 import { router as supportRouter } from "./routes/support.routes.js";
@@ -10,9 +12,7 @@ import { router as saveRouter } from "./routes/save.routes.js";
 import { router as activityRouter } from "./routes/activity.routes.js";
 import { router as driveRouter } from "./routes/drive.routes.js";
 
-dotenv.config({
-  path: "./.env",
-});
+dotenv.config({ path: resolve(dirname(fileURLToPath(import.meta.url)), ".env") });
 
 const app = express();
 
