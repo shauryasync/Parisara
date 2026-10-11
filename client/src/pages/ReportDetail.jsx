@@ -245,7 +245,10 @@ const ReportDetail = () => {
     ? `${coordinates[1]}, ${coordinates[0]}`
     : report.placename?.trim();
   const mapURL = mapPlace
-    ? `https://maps.google.com/maps?q=${encodeURIComponent(mapPlace)}&output=embed`
+    ? `https://www.google.com/maps?q=${encodeURIComponent(mapPlace)}&z=15&output=embed`
+    : "";
+  const externalMapURL = mapPlace
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapPlace)}`
     : "";
 
   return (
@@ -338,7 +341,11 @@ const ReportDetail = () => {
                   disabled={supporting}
                   aria-pressed={Boolean(report.supportedByCurrentUser)}
                   aria-label={report.supportedByCurrentUser ? "Remove support" : "Support report"}
-                  className="flex min-h-10 items-center gap-2 rounded-full bg-stone-100 px-3.5 text-sm font-semibold hover:bg-emerald-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700 disabled:opacity-60"
+                  className={`flex min-h-10 items-center gap-2 rounded-full px-3.5 text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700 disabled:opacity-60 ${
+                    report.supportedByCurrentUser
+                      ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200"
+                      : "bg-stone-100 text-stone-700 hover:bg-emerald-100"
+                  }`}
                 >
                   <ThumbsUp size={17} aria-hidden="true" />
                   {report.supportCount || 0}
@@ -542,6 +549,16 @@ const ReportDetail = () => {
               <MapPin size={16} className="shrink-0 text-emerald-800" aria-hidden="true" />
               {report.placename || "Location not provided"}
             </p>
+            {externalMapURL && (
+              <a
+                href={externalMapURL}
+                target="_blank"
+                rel="noreferrer"
+                className="block border-t border-stone-200 px-4 py-3 text-sm font-semibold text-emerald-800 hover:bg-stone-50 hover:underline"
+              >
+                Open location in Google Maps
+              </a>
+            )}
           </aside>
         </div>
       </div>

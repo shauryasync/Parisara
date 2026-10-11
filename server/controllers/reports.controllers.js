@@ -17,6 +17,32 @@ const removeTemporaryUpload = async (file) => {
   }
 };
 
+const parseGeoPoint = (value) => {
+  if (value === undefined || value === "") return undefined;
+  let geo;
+  try {
+    geo = typeof value === "string" ? JSON.parse(value) : value;
+  } catch {
+    return null;
+  }
+
+  const coordinates = geo?.coordinates;
+  if (
+    geo?.type !== "Point" ||
+    !Array.isArray(coordinates) ||
+    coordinates.length !== 2 ||
+    !coordinates.every(Number.isFinite) ||
+    coordinates[0] < -180 ||
+    coordinates[0] > 180 ||
+    coordinates[1] < -90 ||
+    coordinates[1] > 90
+  ) {
+    return null;
+  }
+
+  return { type: "Point", coordinates };
+};
+
 const createReport = async (req, res) => {
   try {
     const { title, details, category, placename } = req.body;
@@ -26,6 +52,11 @@ const createReport = async (req, res) => {
         success: false,
         message: "All fields required",
       });
+    }
+
+    const geo = parseGeoPoint(req.body.geo);
+    if (req.body.geo && !geo) {
+      return res.status(400).json({ success: false, message: "Invalid location coordinates" });
     }
 
     const imageLocalPaths = req.files?.map((file) => file.path) || [];
@@ -38,6 +69,7 @@ const createReport = async (req, res) => {
       details,
       category,
       placename,
+      ...(geo ? { geo } : {}),
       images: img_URL,
       imagePublicIds,
       reportedBy: req.user._id,
@@ -221,6 +253,14 @@ const updateReport = async (req, res) => {
     if (details) report.details = details;
     if (placename) report.placename = placename;
     if (category) report.category = category;
+    if (req.body.geo !== undefined) {
+      const geo = parseGeoPoint(req.body.geo);
+      if (req.body.geo && !geo) {
+        await Promise.all((req.files || []).map(removeTemporaryUpload));
+        return res.status(400).json({ success: false, message: "Invalid location coordinates" });
+      }
+      report.geo = geo || { type: "Point", coordinates: [] };
+    }
 
     if (req.files?.length) {
       const uploaded = await Promise.all(req.files.map((f) => uploadOnCloudinary(f.path)));

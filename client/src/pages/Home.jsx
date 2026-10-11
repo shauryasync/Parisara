@@ -392,7 +392,7 @@ export default function Feed() {
 
         {/* centre: feed */}
         <main className="lg:col-span-6 flex flex-col gap-6">
-          <section className="bg-white rounded-2xl border border-stone-200 p-3 sticky top-20 z-10">
+          <section className="bg-white rounded-2xl border border-stone-200 p-3">
             <div className="mb-3">
               <div className="relative">
                 <Search

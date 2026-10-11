@@ -32,6 +32,9 @@ export default function CreateReport() {
     placename: "",
     category: "water",
   });
+  const [geo, setGeo] = useState(null);
+  const [locating, setLocating] = useState(false);
+  const [locationError, setLocationError] = useState("");
   const [existingImages, setExistingImages] = useState([]);
   const [images, setImages] = useState([]);
   const [imagePreviews, setImagePreviews] = useState([]);
@@ -54,6 +57,7 @@ export default function CreateReport() {
           placename: report.placename,
           category: report.category,
         });
+        setGeo(report.geo?.coordinates?.length === 2 ? report.geo : null);
         setExistingImages(report.images || []);
       } catch (error) {
         setError(error.response?.data?.message || "Unable to load Report");
@@ -71,6 +75,35 @@ export default function CreateReport() {
     const { name, value } = e.target;
 
     setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleUseCurrentLocation = () => {
+    setLocationError("");
+    if (!navigator.geolocation) {
+      setLocationError("Location services are not supported by this browser.");
+      return;
+    }
+
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        const latitude = Number(coords.latitude.toFixed(6));
+        const longitude = Number(coords.longitude.toFixed(6));
+        setGeo({ type: "Point", coordinates: [longitude, latitude] });
+        setLocating(false);
+      },
+      (positionError) => {
+        setLocationError(
+          positionError.code === positionError.PERMISSION_DENIED
+            ? "Allow location access in your browser to use your current location."
+            : positionError.code === positionError.TIMEOUT
+              ? "Could not get your location in time. Please try again."
+              : "Unable to get your current location. Please enter it manually.",
+        );
+        setLocating(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
+    );
   };
 
   const handleCategorySelect = (category) => {
@@ -145,6 +178,7 @@ export default function CreateReport() {
     Object.entries(formData).forEach(([name, value]) => {
       payload.append(name, value);
     });
+    payload.append("geo", geo ? JSON.stringify(geo) : "");
     images.forEach((image) => payload.append("images", image));
 
     try {
@@ -221,16 +255,39 @@ export default function CreateReport() {
               <div className="space-y-2.5">
                 <div className="flex items-center justify-between">
                   <label className="font-semibold text-sm" htmlFor="location">
-                    Incident Location <span className="text-red-500">*</span>
+                    Incident Location name <span className="text-red-500">*</span>
                   </label>
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-1.5 text-emerald-700 hover:text-emerald-900 text-sm font-medium"
-                  >
-                    <LocateFixed size={16} />
-                    Use current location
-                  </button>
+                  <div className="flex items-center gap-3">
+                    {geo && (
+                      <button
+                        type="button"
+                        onClick={() => setGeo(null)}
+                        className="text-sm font-medium text-stone-500 hover:text-stone-800"
+                      >
+                        Clear map pin
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleUseCurrentLocation}
+                      disabled={locating}
+                      className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-700 hover:text-emerald-900 disabled:opacity-60"
+                    >
+                      <LocateFixed size={16} />
+                      {locating ? "Getting location..." : "Use current location"}
+                    </button>
+                  </div>
                 </div>
+                <p className="text-xs text-stone-500">
+                  {geo
+                    ? "Map pin saved from your current coordinates. Enter a recognizable place name above."
+                    : "Enter a recognizable place name, or use your current location to set a precise map pin."}
+                </p>
+                {locationError && (
+                  <p role="alert" className="text-sm text-red-600">
+                    {locationError}
+                  </p>
+                )}
                 <div className="relative">
                   <MapPin className="absolute left-3.5 top-3.5 text-emerald-700" size={20} />
                   <input
