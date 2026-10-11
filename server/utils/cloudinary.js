@@ -29,8 +29,42 @@ const uploadOnCloudinary = async (localFilePath) => {
     }
 
     console.error("Cloudinary upload error:", error.message);
-    return null;
+    throw error;
   }
 };
 
-export { uploadOnCloudinary };
+const getPublicIdFromImageUrl = (imageUrl) => {
+  let image;
+  try {
+    image = new URL(imageUrl);
+  } catch {
+    return null;
+  }
+
+  if (!image.hostname.endsWith(".cloudinary.com")) return null;
+
+  const pathParts = image.pathname.split("/").filter(Boolean);
+  const uploadIndex = pathParts.indexOf("upload");
+  if (uploadIndex === -1) return null;
+
+  const afterUpload = pathParts.slice(uploadIndex + 1);
+  const versionIndex = afterUpload.findIndex((part) => /^v\d+$/.test(part));
+  const publicIdParts = afterUpload.slice(versionIndex === -1 ? 0 : versionIndex + 1);
+  if (!publicIdParts.length) return null;
+
+  const lastPart = publicIdParts[publicIdParts.length - 1];
+  publicIdParts[publicIdParts.length - 1] = lastPart.replace(/\.[^.]+$/, "");
+  return publicIdParts.join("/");
+};
+
+const deleteImageFromCloudinary = async (imageUrl, publicId) => {
+  const imagePublicId = publicId || getPublicIdFromImageUrl(imageUrl);
+  if (!imagePublicId) return;
+
+  const result = await cloudinary.uploader.destroy(imagePublicId, { resource_type: "image" });
+  if (result.result !== "ok" && result.result !== "not found") {
+    throw new Error(`Cloudinary could not delete the image: ${result.result}`);
+  }
+};
+
+export { uploadOnCloudinary, deleteImageFromCloudinary };

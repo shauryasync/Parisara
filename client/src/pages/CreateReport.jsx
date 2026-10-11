@@ -37,6 +37,7 @@ export default function CreateReport() {
   const [imagePreviews, setImagePreviews] = useState([]);
   const previewUrlsRef = useRef([]);
   const [loading, setLoading] = useState(false);
+  const [imageAction, setImageAction] = useState(null);
   const [error, setError] = useState(null);
   const allImagePreviews = [...existingImages, ...imagePreviews];
 
@@ -77,13 +78,62 @@ export default function CreateReport() {
   };
 
   const handleImagesChange = (e) => {
-    const selectedImages = Array.from(e.target.files).slice(0, 3);
+    const remainingImageSlots = Math.max(0, 5 - existingImages.length - images.length);
+    const selectedImages = Array.from(e.target.files).slice(0, Math.min(3, remainingImageSlots));
+    const selectedPreviews = selectedImages.map((image) => URL.createObjectURL(image));
+    previewUrlsRef.current = [...previewUrlsRef.current, ...selectedPreviews];
 
-    previewUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
-    previewUrlsRef.current = selectedImages.map((image) => URL.createObjectURL(image));
+    setImages((currentImages) => [...currentImages, ...selectedImages]);
+    setImagePreviews((currentPreviews) => [...currentPreviews, ...selectedPreviews]);
+    e.target.value = "";
+  };
 
-    setImages(selectedImages);
-    setImagePreviews(previewUrlsRef.current);
+  const handleDeleteExistingImage = async (imageIndex) => {
+    setImageAction(`delete-${imageIndex}`);
+    setError(null);
+
+    try {
+      const response = await api.delete(`/reports/get-reports/${id}/images/${imageIndex}`);
+      setExistingImages(response.data.data.images || []);
+      if (response.data.cleanupWarning) setError(response.data.cleanupWarning);
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || "Unable to delete this image.");
+    } finally {
+      setImageAction(null);
+    }
+  };
+
+  const handleReplaceExistingImage = async (event, imageIndex) => {
+    const image = event.target.files?.[0];
+    event.target.value = "";
+    if (!image) return;
+
+    setImageAction(`replace-${imageIndex}`);
+    setError(null);
+    const payload = new FormData();
+    payload.append("image", image);
+
+    try {
+      const response = await api.patch(
+        `/reports/get-reports/${id}/images/${imageIndex}`,
+        payload,
+      );
+      setExistingImages(response.data.data.images || []);
+      if (response.data.cleanupWarning) setError(response.data.cleanupWarning);
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || "Unable to replace this image.");
+    } finally {
+      setImageAction(null);
+    }
+  };
+
+  const handleRemoveSelectedImage = (imageIndex) => {
+    URL.revokeObjectURL(imagePreviews[imageIndex]);
+    previewUrlsRef.current.splice(imageIndex, 1);
+    setImages((currentImages) => currentImages.filter((_, index) => index !== imageIndex));
+    setImagePreviews((currentPreviews) =>
+      currentPreviews.filter((_, index) => index !== imageIndex),
+    );
   };
 
   const handleSubmit = async (e) => {
@@ -221,7 +271,7 @@ export default function CreateReport() {
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <label className="font-semibold text-sm">Visual Evidence</label>
-                  <span className="text-xs text-stone-400">Max 3 photos, 15MB each</span>
+                  <span className="text-xs text-stone-400">Up to 5 photos total, 15MB each</span>
                 </div>
 
                 <label
@@ -244,19 +294,61 @@ export default function CreateReport() {
                     hidden
                     onChange={handleImagesChange}
                   />
-                  {existingImages.length > 0 && (
-                    <div className="grid grid-cols-3 gap-2 w-full">
-                      {existingImages.map((imageUrl) => (
-                        <img
-                          key={imageUrl}
-                          src={imageUrl}
-                          alt="Existing report evidence"
-                          className="h-20 w-full rounded-lg object-cover"
-                        />
-                      ))}
-                    </div>
-                  )}
                 </label>
+                {(existingImages.length > 0 || imagePreviews.length > 0) && (
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                    {existingImages.map((imageUrl, index) => (
+                      <div
+                        key={`${imageUrl}-${index}`}
+                        className="relative overflow-hidden rounded-lg"
+                      >
+                        <img
+                          src={imageUrl}
+                          alt={`Existing report evidence ${index + 1}`}
+                          className="h-28 w-full object-cover"
+                        />
+                        {isEditMode && (
+                          <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 bg-black/65 p-2">
+                            <label className="cursor-pointer text-xs font-semibold text-white hover:underline">
+                              Replace
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="sr-only"
+                                disabled={imageAction !== null}
+                                onChange={(event) => handleReplaceExistingImage(event, index)}
+                              />
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteExistingImage(index)}
+                              disabled={imageAction !== null}
+                              className="text-xs font-semibold text-white hover:underline disabled:opacity-50"
+                            >
+                              {imageAction === `delete-${index}` ? "Deleting..." : "Delete"}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                    {imagePreviews.map((previewUrl, index) => (
+                      <div key={previewUrl} className="relative overflow-hidden rounded-lg">
+                        <img
+                          src={previewUrl}
+                          alt={`New report evidence ${index + 1}`}
+                          className="h-28 w-full object-cover"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveSelectedImage(index)}
+                          className="absolute bottom-0 left-0 right-0 bg-black/65 p-2 text-xs font-semibold text-white hover:underline"
+                        >
+                          Remove selected image
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {error && <p className="text-sm text-red-600">{error}</p>}
@@ -272,7 +364,7 @@ export default function CreateReport() {
                 </button>
                 <button
                   type="submit"
-                  disabled={loading}
+                  disabled={loading || imageAction !== null}
                   className="px-7 py-3 rounded-full bg-emerald-800 text-white hover:bg-emerald-700 disabled:opacity-60 transition font-semibold text-sm flex items-center gap-2"
                 >
                   {loading

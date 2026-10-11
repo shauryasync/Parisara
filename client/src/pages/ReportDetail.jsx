@@ -287,6 +287,21 @@ const ReportDetail = () => {
             </p>
           </div>
         </header>
+        {report.images?.length > 1 && (
+          <section
+            aria-label="Report images"
+            className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4"
+          >
+            {report.images.slice(1).map((imageUrl, index) => (
+              <img
+                key={`${imageUrl}-${index}`}
+                src={imageUrl}
+                alt={`${report.title} evidence ${index + 2}`}
+                className="aspect-[4/3] w-full rounded-lg object-cover"
+              />
+            ))}
+          </section>
+        )}
 
         <div className="mt-5 grid gap-5 lg:grid-cols-3">
           <div className="flex flex-col gap-4 lg:col-span-2">

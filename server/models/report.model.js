@@ -12,6 +12,7 @@ const reportSchema = new mongoose.Schema(
       required: true,
     },
     images: [{ type: String }],
+    imagePublicIds: [{ type: String }],
 
     reportedBy: {
       type: mongoose.Schema.Types.ObjectId,
