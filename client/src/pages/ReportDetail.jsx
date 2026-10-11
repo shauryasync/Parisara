@@ -357,12 +357,14 @@ const ReportDetail = () => {
                     Community actions organized in response to this report.
                   </p>
                 </div>
-                <Link
-                  to={`/drives/create?report=${encodeURIComponent(id)}`}
-                  className="inline-flex min-h-10 items-center justify-center rounded-md bg-emerald-800 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
-                >
-                  Start a Drive for this report
-                </Link>
+                {localStorage.getItem("token") && (
+                  <Link
+                    to={`/drives/create?report=${encodeURIComponent(id)}`}
+                    className="inline-flex min-h-10 items-center justify-center rounded-md bg-emerald-800 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
+                  >
+                    Start a Drive for this report
+                  </Link>
+                )}
               </div>
 
               {report.supportCount < 5 && (

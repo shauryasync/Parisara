@@ -110,9 +110,6 @@ const Navbar = ({ user }) => {
             >
               Drives
             </Link>
-            <Link to="/drives/create" className="text-emerald-700 hover:text-emerald-900 transition">
-              Start a Drive
-            </Link>
             <Link to="/login" className="text-stone-600 hover:text-emerald-800 transition">
               Sign in
             </Link>

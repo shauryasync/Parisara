@@ -339,11 +339,7 @@ export default function DriveDetail() {
     setActionError("");
     const startsAt = new Date(editData.startsAt);
     const endsAt = new Date(editData.endsAt);
-    if (
-      Number.isNaN(startsAt.getTime()) ||
-      Number.isNaN(endsAt.getTime()) ||
-      endsAt <= startsAt
-    ) {
+    if (Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime()) || endsAt <= startsAt) {
       setActionError("Choose valid start and end dates, with the end after the start.");
       return;
     }
@@ -415,7 +411,8 @@ export default function DriveDetail() {
   };
 
   const isOrganizer =
-    currentUser && (drive.organizer?._id === currentUser._id || drive.organizer === currentUser._id);
+    currentUser &&
+    (drive.organizer?._id === currentUser._id || drive.organizer === currentUser._id);
 
   const isCoOrganizer =
     currentUser && drive.coOrganizers?.some((c) => (c._id || c) === currentUser._id);
@@ -457,11 +454,11 @@ export default function DriveDetail() {
     <div className="min-h-screen bg-stone-50 text-stone-800">
       <main className="max-w-4xl mx-auto px-4 py-8">
         <Link
-          to="/feed"
+          to="/drives"
           className="inline-flex items-center gap-2 text-sm font-semibold text-stone-500 hover:text-emerald-700 transition mb-6"
         >
           <ArrowLeft size={16} />
-          Back to Feed
+          Back to Drives
         </Link>
 
         <div className="bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden mb-8">
@@ -640,8 +637,8 @@ export default function DriveDetail() {
                       {actionLoading
                         ? "Joining..."
                         : drive.maxParticipants && drive.participantCount >= drive.maxParticipants
-                        ? "Drive Full"
-                        : "Join Drive"}
+                          ? "Drive Full"
+                          : "Join Drive"}
                     </button>
                   </div>
                 )}
@@ -939,10 +936,7 @@ export default function DriveDetail() {
                   <span className="font-semibold text-stone-800">
                     {participant.user?.name || participant.user?.username || "Community member"}
                   </span>
-                  <time
-                    dateTime={participant.joinedAt}
-                    className="shrink-0 text-xs text-stone-500"
-                  >
+                  <time dateTime={participant.joinedAt} className="shrink-0 text-xs text-stone-500">
                     Joined {formatCommentDate(participant.joinedAt)}
                   </time>
                 </li>
@@ -1034,7 +1028,8 @@ export default function DriveDetail() {
           ) : (
             <div className="space-y-4">
               {comments.map((comment) => {
-                const authorName = comment.user?.name || comment.user?.username || "Community Member";
+                const authorName =
+                  comment.user?.name || comment.user?.username || "Community Member";
                 const isAuthor =
                   currentUser &&
                   (comment.user?._id === currentUser._id || comment.user === currentUser._id);
