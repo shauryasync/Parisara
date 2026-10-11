@@ -24,15 +24,7 @@ const FILTERS = [
   { label: "Trending", icon: TrendingUp, key: "trending" },
 ];
 const PAGE_SIZE = 10;
-
-// Static placeholder — swap for a GET /api/v1/zones?trending=true later.
-const TRENDING_ZONES = [
-  { name: "Mill Creek Trail", reports: 12, priority: "High" },
-  { name: "Oakridge Park", reports: 7, priority: "Medium" },
-  { name: "Cedar Creek Greenbelt", reports: 5, priority: "Medium" },
-];
-
-
+const TRENDING_ZONE_PREVIEW_COUNT = 3;
 
 const formatLabel = (value) =>
   value
@@ -96,7 +88,36 @@ export default function Feed() {
   const [drives, setDrives] = useState([]);
   const [loadingDrives, setLoadingDrives] = useState(true);
   const [drivesError, setDrivesError] = useState(null);
+  const [trendingZones, setTrendingZones] = useState([]);
+  const [showAllTrendingZones, setShowAllTrendingZones] = useState(false);
+  const [loadingTrendingZones, setLoadingTrendingZones] = useState(true);
+  const [trendingZonesError, setTrendingZonesError] = useState(null);
   const isAuthenticated = Boolean(localStorage.getItem("token"));
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const loadTrendingZones = async () => {
+      setLoadingTrendingZones(true);
+      setTrendingZonesError(null);
+      try {
+        const response = await api.get("/reports/trending-zones", {
+          signal: controller.signal,
+        });
+        setTrendingZones(response.data.data || []);
+      } catch (requestError) {
+        if (requestError.code !== "ERR_CANCELED") {
+          setTrendingZonesError(
+            requestError.response?.data?.message || "Unable to load trending zones.",
+          );
+        }
+      } finally {
+        if (!controller.signal.aborted) setLoadingTrendingZones(false);
+      }
+    };
+
+    loadTrendingZones();
+    return () => controller.abort();
+  }, []);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -139,6 +160,7 @@ export default function Feed() {
     activeCategories.forEach((category) => params.append("category", category));
     activeStatuses.forEach((status) => params.append("status", status));
     if (search.trim()) params.set("search", search.trim());
+    if (activeFilter === "recent") params.set("sort", "recent");
     params.set("page", page);
     params.set("limit", PAGE_SIZE);
 
@@ -172,7 +194,7 @@ export default function Feed() {
 
     loadReports();
     return () => controller.abort();
-  }, [activeCategories, activeStatuses, search, page]);
+  }, [activeCategories, activeStatuses, activeFilter, search, page]);
 
   const reports = useMemo(() => {
     const newestFirst = (first, second) =>
@@ -316,6 +338,17 @@ export default function Feed() {
     );
   };
 
+  const selectFilter = (filter) => {
+    setActiveFilter(filter);
+    setPage(1);
+  };
+
+  const searchZone = (zoneName) => {
+    setActiveFilter("recent");
+    setSearch(zoneName);
+    setPage(1);
+  };
+
   return (
     <div className="min-h-screen bg-stone-50 flex flex-col">
       <Navbar user={user} />
@@ -419,7 +452,7 @@ export default function Feed() {
                   <button
                     key={key}
                     type="button"
-                    onClick={() => setActiveFilter(key)}
+                    onClick={() => selectFilter(key)}
                     className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm font-medium transition ${
                       active
                         ? "bg-emerald-900 text-white"
@@ -481,25 +514,56 @@ export default function Feed() {
               <Flame size={16} className="text-emerald-700" />
               Trending Zones
             </h3>
-            <div className="flex flex-col gap-3">
-              {TRENDING_ZONES.map((zone) => (
-                <div key={zone.name} className="flex items-center justify-between text-sm">
-                  <div>
-                    <div className="font-medium text-emerald-900">{zone.name}</div>
-                    <div className="text-xs text-stone-400">{zone.reports} active reports</div>
-                  </div>
-                  <span
-                    className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                      zone.priority === "High"
-                        ? "bg-red-100 text-red-700"
-                        : "bg-amber-100 text-amber-700"
-                    }`}
-                  >
-                    {zone.priority}
-                  </span>
+            <p className="mb-3 text-xs text-stone-400">Based on active reports from the last 30 days</p>
+            {loadingTrendingZones ? (
+              <p role="status" className="text-xs text-stone-400">Loading trending zones...</p>
+            ) : trendingZonesError ? (
+              <p role="alert" className="text-xs text-red-600">{trendingZonesError}</p>
+            ) : trendingZones.length === 0 ? (
+              <p className="text-xs text-stone-500">No active report hotspots yet.</p>
+            ) : (
+              <>
+                <div className="flex flex-col gap-2">
+                  {(showAllTrendingZones
+                    ? trendingZones
+                    : trendingZones.slice(0, TRENDING_ZONE_PREVIEW_COUNT)
+                  ).map((zone) => (
+                    <button
+                      key={zone.name}
+                      type="button"
+                      onClick={() => searchZone(zone.name)}
+                      className="flex w-full items-center justify-between gap-3 rounded-lg p-2 text-left text-sm transition hover:bg-stone-50"
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate font-medium text-emerald-900">
+                          {zone.name}
+                        </span>
+                        <span className="text-xs text-stone-400">
+                          {zone.reportCount} active {zone.reportCount === 1 ? "report" : "reports"}
+                        </span>
+                      </span>
+                      <MapPin
+                        size={16}
+                        className="shrink-0 text-emerald-700"
+                        aria-hidden="true"
+                      />
+                    </button>
+                  ))}
                 </div>
-              ))}
-            </div>
+                {trendingZones.length > TRENDING_ZONE_PREVIEW_COUNT && (
+                  <button
+                    type="button"
+                    aria-expanded={showAllTrendingZones}
+                    onClick={() => setShowAllTrendingZones((expanded) => !expanded)}
+                    className="mt-2 w-full rounded-md px-2 py-2 text-left text-sm font-semibold text-emerald-800 hover:bg-emerald-50"
+                  >
+                    {showAllTrendingZones
+                      ? "Show less"
+                      : `View all ${trendingZones.length} zones`}
+                  </button>
+                )}
+              </>
+            )}
           </div>
 
           <div className="bg-white rounded-2xl border border-stone-200 p-4">

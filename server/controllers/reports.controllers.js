@@ -98,7 +98,7 @@ const createReport = async (req, res) => {
 
 const getReports = async (req, res) => {
   try {
-    const { category, status, search } = req.query;
+    const { category, status, search, sort } = req.query;
     const page = Number(req.query.page ?? 1);
     const requestedLimit = Number(req.query.limit ?? 10);
 
@@ -128,7 +128,8 @@ const getReports = async (req, res) => {
     if (
       categories.some((value) => !allowedCategories.includes(value)) ||
       statuses.some((value) => !allowedStatuses.includes(value)) ||
-      (search !== undefined && typeof search !== "string")
+      (search !== undefined && typeof search !== "string") ||
+      (sort !== undefined && sort !== "recent")
     ) {
       return res.status(400).json({ success: false, message: "Invalid report filters" });
     }
@@ -148,12 +149,14 @@ const getReports = async (req, res) => {
       ];
     }
 
+    const reportQuery = Report.find(filter)
+      .populate("reportedBy", "name username")
+      .sort(sort === "recent" ? { createdAt: -1, _id: -1 } : { createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
     const [fetchedReports, totalReports, myReportCount] = await Promise.all([
-      Report.find(filter)
-        .populate("reportedBy", "name username")
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit),
+      reportQuery,
       Report.countDocuments(filter),
       req.user?._id ? Report.countDocuments({ reportedBy: req.user._id }) : 0,
     ]);
@@ -198,6 +201,56 @@ const getReports = async (req, res) => {
   } catch (error) {
     console.log(error);
     res.status(500).json({ message: "Server Error" });
+  }
+};
+
+const getTrendingZones = async (_req, res) => {
+  try {
+    const since = new Date();
+    since.setDate(since.getDate() - 30);
+
+    const zones = await Report.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: since },
+          status: { $in: ["reported", "in-progress"] },
+          placename: { $type: "string", $ne: "" },
+        },
+      },
+      {
+        $addFields: {
+          trimmedPlacename: { $trim: { input: "$placename" } },
+        },
+      },
+      {
+        $match: {
+          trimmedPlacename: { $ne: "" },
+        },
+      },
+      { $sort: { createdAt: -1, _id: -1 } },
+      {
+        $group: {
+          _id: { $toLower: "$trimmedPlacename" },
+          name: { $first: "$trimmedPlacename" },
+          reportCount: { $sum: 1 },
+          latestReportAt: { $first: "$createdAt" },
+        },
+      },
+      { $sort: { reportCount: -1, latestReportAt: -1, name: 1 } },
+      { $limit: 50 },
+      {
+        $project: {
+          _id: 0,
+          name: 1,
+          reportCount: 1,
+        },
+      },
+    ]);
+
+    return res.status(200).json({ success: true, data: zones });
+  } catch (error) {
+    console.error("Error loading trending zones:", error);
+    return res.status(500).json({ success: false, message: "Unable to load trending zones" });
   }
 };
 
@@ -431,6 +484,7 @@ const deleteReport = async (req, res) => {
 export {
   createReport,
   getReports,
+  getTrendingZones,
   getReportById,
   updateReport,
   replaceReportImage,

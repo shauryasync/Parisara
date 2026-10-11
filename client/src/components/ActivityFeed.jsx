@@ -83,7 +83,7 @@ const ActivityFeed = ({ compact = false, refreshKey = 0 }) => {
     };
   }, [reloadCount, refreshKey]);
 
-  const visibleActivities = compact ? activities.slice(0, 4) : activities;
+  const visibleActivities = compact ? activities.slice(0, 2) : activities;
   const Heading = compact ? "h2" : "h1";
 
   return (
@@ -203,7 +203,7 @@ const ActivityFeed = ({ compact = false, refreshKey = 0 }) => {
                       <span className="font-semibold text-emerald-950">{reportTitle}</span>
                     )}
                   </div>
-                  {activity.action === "comment_created" && activity.comment?.content && (
+                  {!compact && activity.action === "comment_created" && activity.comment?.content && (
                     <p
                       className={`mt-1.5 break-words text-stone-600 ${compact ? "text-xs" : "text-sm"}`}
                     >

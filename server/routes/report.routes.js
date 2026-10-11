@@ -5,6 +5,7 @@ import {
   deleteReportImage,
   getReportById,
   getReports,
+  getTrendingZones,
   replaceReportImage,
   updateReport,
 } from "../controllers/reports.controllers.js";
@@ -14,6 +15,7 @@ import { upload } from "../middleware/cloudinary.middleware.js";
 const router = Router();
 
 router.post("/create-report", protect, upload.array("images", 5), createReport);
+router.get("/trending-zones", getTrendingZones);
 router.get("/get-reports", optionalAuth, getReports);
 router.get("/get-reports/:id", optionalAuth, getReportById);
 router.patch(
