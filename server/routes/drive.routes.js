@@ -15,7 +15,7 @@ import {
   createDriveComment,
   deleteDriveComment,
 } from "../controllers/drive.controllers.js";
-import { optionalAuth, protect } from "../middleware/authMiddleware.js";
+import { optionalAuth, protect } from "../middleware/auth.middleware.js";
 
 const router = Router();
 

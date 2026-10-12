@@ -9,7 +9,7 @@ import {
   replaceReportImage,
   updateReport,
 } from "../controllers/reports.controllers.js";
-import { optionalAuth, protect } from "../middleware/authMiddleware.js";
+import { optionalAuth, protect } from "../middleware/auth.middleware.js";
 import { upload } from "../middleware/cloudinary.middleware.js";
 
 const router = Router();

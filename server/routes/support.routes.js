@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { deleteSupport, getSupport, createNewSupport } from "../controllers/support.controller.js";
-import { protect } from "../middleware/authMiddleware.js";
+import { protect } from "../middleware/auth.middleware.js";
 
 const router = Router();
 

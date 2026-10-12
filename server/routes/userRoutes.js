@@ -4,8 +4,8 @@ import {
   verifyEmail,
   loginUser,
   getProfile,
-} from "../controllers/userAuth.js";
-import { protect } from "../middleware/authMiddleware.js";
+} from "../controllers/user.controller.js";
+import { protect } from "../middleware/auth.middleware.js";
 
 const router = Router();
 

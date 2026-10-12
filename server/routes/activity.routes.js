@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { getActivities } from "../controllers/activity.controller.js";
-import { protect } from "../middleware/authMiddleware.js";
+import { protect } from "../middleware/auth.middleware.js";
 
 const router = Router();
 
