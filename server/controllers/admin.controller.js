@@ -1,4 +1,5 @@
 import Report from "../models/report.model.js";
+import User from "../models/user.models.js";
 
 const hideReport = async (req, res) => {
   try {
@@ -140,7 +141,9 @@ const getAdminReports = async (req, res) => {
     if (category !== undefined) filter.category = category;
     if (status !== undefined) filter.status = status;
     if (search?.trim()) {
-      const escapedSearch = search.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const escapedSearch = search
+        .trim()
+        .replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       filter.$or = [
         { title: { $regex: escapedSearch, $options: "i" } },
         { details: { $regex: escapedSearch, $options: "i" } },
@@ -205,4 +208,68 @@ const updateAdminReportStatus = async (req, res) => {
   }
 };
 
-export { hideReport, restoreReport, getAdminReports, updateAdminReportStatus };
+const MAX_USERS_SKIP = 100_000;
+
+const getAdminUsers = async (req, res) => {
+  try {
+    const { search, role, isVerified } = req.query;
+    const page = parsePositiveInteger(req.query.page ?? "1");
+    const requestedLimit = parsePositiveInteger(req.query.limit ?? "10");
+    const limit = requestedLimit !== null && requestedLimit <= 50 ? requestedLimit : null;
+    const roles = User.schema.path("role").enumValues;
+
+    if (
+      page === null ||
+      limit === null ||
+      (search !== undefined && typeof search !== "string") ||
+      (role !== undefined && (typeof role !== "string" || !roles.includes(role))) ||
+      (isVerified !== undefined &&
+        (typeof isVerified !== "string" || !["true", "false"].includes(isVerified)))
+    ) {
+      return res.status(400).json({ success: false, message: "Invalid user filters" });
+    }
+
+    const skip = (page - 1) * limit;
+    if (!Number.isSafeInteger(skip) || skip > MAX_USERS_SKIP) {
+      return res.status(400).json({ success: false, message: "Invalid pagination values" });
+    }
+
+    const filter = {};
+    if (role !== undefined) filter.role = role;
+    if (isVerified !== undefined) filter.isVerified = isVerified === "true";
+    if (search?.trim()) {
+      const escapedSearch = search
+        .trim()
+        .replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      filter.$or = ["name", "username", "email"].map((field) => ({
+        [field]: { $regex: escapedSearch, $options: "i" },
+      }));
+    }
+
+    const [users, total] = await Promise.all([
+      User.find(filter)
+        .select("_id name username email role isVerified createdAt updatedAt")
+        .sort({ createdAt: -1, _id: -1 })
+        .skip(skip)
+        .limit(limit),
+      User.countDocuments(filter),
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      data: users,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        hasMore: skip + users.length < total,
+      },
+    });
+  } catch (error) {
+    console.error("Error loading admin users:", error);
+    return res.status(500).json({ success: false, message: "Unable to load users" });
+  }
+};
+
+export { hideReport, restoreReport, getAdminReports, updateAdminReportStatus, getAdminUsers };

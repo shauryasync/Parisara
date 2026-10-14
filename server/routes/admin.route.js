@@ -4,6 +4,7 @@ import {
   restoreReport,
   getAdminReports,
   updateAdminReportStatus,
+  getAdminUsers,
 } from "../controllers/admin.controller.js";
 import { protect, requireAdmin } from "../middleware/auth.middleware.js";
 
@@ -15,5 +16,6 @@ router.patch("/reports/:id/restore", protect, requireAdmin, restoreReport);
 
 router.get("/reports", protect, requireAdmin, getAdminReports);
 router.patch("/reports/:id/status", protect, requireAdmin, updateAdminReportStatus);
+router.get("/users", protect, requireAdmin, getAdminUsers);
 
 export { router };
