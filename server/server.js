@@ -11,6 +11,7 @@ import { router as commentRouter } from "./routes/comment.routes.js";
 import { router as saveRouter } from "./routes/save.routes.js";
 import { router as activityRouter } from "./routes/activity.routes.js";
 import { router as driveRouter } from "./routes/drive.routes.js";
+import { router as adminRouter } from "./routes/admin.route.js";
 
 dotenv.config({ path: resolve(dirname(fileURLToPath(import.meta.url)), ".env") });
 
@@ -36,6 +37,7 @@ app.use("/api/reports", commentRouter);
 app.use("/api/reports", saveRouter);
 app.use("/api/activity", activityRouter);
 app.use("/api/drives", driveRouter);
+app.use("/api/admin", adminRouter);
 
 mongoose
   .connect(process.env.MONGODB_URI)

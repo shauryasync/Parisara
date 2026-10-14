@@ -118,7 +118,8 @@ const getReports = async (req, res) => {
       return res.status(400).json({ success: false, message: "Invalid pagination values" });
     }
 
-    const filter = {};
+    const filter =
+      req.user?.role === "admin" ? {} : { isHidden: { $ne: true } };
     const allowedCategories = ["pollution", "waste", "deforestation", "water", "other"];
     const allowedStatuses = ["reported", "in-progress", "resolved"];
     const categories =
@@ -214,6 +215,7 @@ const getTrendingZones = async (_req, res) => {
         $match: {
           createdAt: { $gte: since },
           status: { $in: ["reported", "in-progress"] },
+          isHidden: { $ne: true },
           placename: { $type: "string", $ne: "" },
         },
       },
@@ -258,7 +260,10 @@ const getReportById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const report = await Report.findById(id).populate("reportedBy");
+    const report = await Report.findOne({
+      _id: id,
+      ...(req.user?.role === "admin" ? {} : { isHidden: { $ne: true } }),
+    }).populate("reportedBy", "name username");
 
     if (!report) return res.status(404).json({ message: "Not Found" });
 
@@ -366,7 +371,9 @@ const replaceReportImage = async (req, res) => {
     }
     if (report.reportedBy?.toString() !== req.user._id.toString()) {
       await removeTemporaryUpload(req.file);
-      return res.status(403).json({ success: false, message: "Not authorized to edit this report" });
+      return res
+        .status(403)
+        .json({ success: false, message: "Not authorized to edit this report" });
     }
     if (imageIndex >= report.images.length) {
       await removeTemporaryUpload(req.file);
@@ -377,9 +384,8 @@ const replaceReportImage = async (req, res) => {
     const previousImage = report.images[imageIndex];
     const previousPublicId = report.imagePublicIds?.[imageIndex];
     report.images[imageIndex] = uploadedImage.secure_url;
-    report.imagePublicIds = Array.from(
-      { length: report.images.length },
-      (_, index) => (index === imageIndex ? uploadedImage.public_id : report.imagePublicIds?.[index] || ""),
+    report.imagePublicIds = Array.from({ length: report.images.length }, (_, index) =>
+      index === imageIndex ? uploadedImage.public_id : report.imagePublicIds?.[index] || "",
     );
 
     try {
@@ -398,7 +404,8 @@ const replaceReportImage = async (req, res) => {
       await deleteImageFromCloudinary(previousImage, previousPublicId);
     } catch (error) {
       console.error("Unable to clean up previous report image:", error);
-      cleanupWarning = "The new image was saved, but the old image could not be removed from storage.";
+      cleanupWarning =
+        "The new image was saved, but the old image could not be removed from storage.";
     }
 
     return res.status(200).json({
@@ -425,7 +432,9 @@ const deleteReportImage = async (req, res) => {
     const report = await Report.findById(id);
     if (!report) return res.status(404).json({ success: false, message: "Report Not Found" });
     if (report.reportedBy?.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ success: false, message: "Not authorized to edit this report" });
+      return res
+        .status(403)
+        .json({ success: false, message: "Not authorized to edit this report" });
     }
     if (imageIndex >= report.images.length) {
       return res.status(404).json({ success: false, message: "Image Not Found" });
@@ -445,7 +454,8 @@ const deleteReportImage = async (req, res) => {
       await deleteImageFromCloudinary(removedImage, removedPublicId);
     } catch (error) {
       console.error("Unable to clean up deleted report image:", error);
-      cleanupWarning = "The image was removed from the report, but could not be removed from storage.";
+      cleanupWarning =
+        "The image was removed from the report, but could not be removed from storage.";
     }
 
     return res.status(200).json({
