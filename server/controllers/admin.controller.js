@@ -1,3 +1,5 @@
+import mongoose from "mongoose";
+import AdminRoleLock from "../models/adminRoleLock.model.js";
 import Report from "../models/report.model.js";
 import User from "../models/user.models.js";
 
@@ -272,4 +274,101 @@ const getAdminUsers = async (req, res) => {
   }
 };
 
-export { hideReport, restoreReport, getAdminReports, updateAdminReportStatus, getAdminUsers };
+const updateAdminUserRole = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { role } = req.body || {};
+
+    if (
+      !mongoose.isObjectIdOrHexString(id) ||
+      typeof role !== "string" ||
+      !["user", "admin"].includes(role)
+    ) {
+      return res.status(400).json({ success: false, message: "Invalid user ID or role" });
+    }
+
+    if (id.toString() === req.user._id.toString()) {
+      return res.status(400).json({ success: false, message: "You cannot change your own role" });
+    }
+
+    const safeUserFields = "_id name username email role isVerified createdAt updatedAt";
+    const roleLockId = "admin-role-changes";
+    try {
+      await AdminRoleLock.updateOne(
+        { _id: roleLockId },
+        { $setOnInsert: { version: 0 } },
+        { upsert: true },
+      );
+    } catch (error) {
+      if (error.code !== 11000) throw error;
+    }
+
+    const session = await mongoose.startSession();
+    let outcome;
+    try {
+      await session.withTransaction(async () => {
+        // A shared transactional write serializes promotions and demotions.
+        await AdminRoleLock.updateOne(
+          { _id: roleLockId },
+          { $inc: { version: 1 } },
+          { session },
+        );
+
+        const targetUser = await User.findById(id).select("_id role").session(session);
+        if (!targetUser) {
+          outcome = { status: 404, message: "User not found" };
+          return;
+        }
+
+        if (targetUser.role === "admin" && role === "user") {
+          const adminCount = await User.countDocuments({ role: "admin" }).session(session);
+          if (adminCount <= 1) {
+            outcome = {
+              status: 409,
+              message: "Cannot demote the last administrator",
+            };
+            return;
+          }
+        }
+
+        const updatedUser = await User.findOneAndUpdate(
+          { _id: id, role: targetUser.role },
+          { $set: { role } },
+          { new: true, runValidators: true, session },
+        )
+          .select(safeUserFields)
+          .session(session);
+
+        outcome = updatedUser
+          ? { status: 200, user: updatedUser }
+          : {
+              status: 409,
+              message: "User role changed before the update could be applied",
+            };
+      });
+    } finally {
+      await session.endSession();
+    }
+
+    if (outcome?.status !== 200) {
+      return res.status(outcome?.status || 500).json({
+        success: false,
+        message: outcome?.message || "Unable to update user role",
+      });
+    }
+
+    return res.status(200).json({ success: true, data: outcome.user });
+  } catch (error) {
+    console.error("Error updating admin user role:", error);
+    return res.status(500).json({ success: false, message: "Unable to update user role" });
+  }
+};
+
+export {
+  hideReport,
+  restoreReport,
+  getAdminReports,
+  updateAdminReportStatus,
+  getAdminUsers,
+  updateAdminUserRole,
+};
