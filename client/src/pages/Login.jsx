@@ -17,7 +17,7 @@ const Login = () => {
 
       localStorage.setItem("token", res.data.token);
       alert("Login Successful...Welcome!");
-      navigate("/feed");
+      navigate(res.data.user?.role === "admin" ? "/admin" : "/feed");
     } catch (error) {
       alert(error.response?.data?.message || "Login Failed");
     }

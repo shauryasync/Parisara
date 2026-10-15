@@ -1,12 +1,57 @@
+import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import api from "../services/api";
 
-const Navbar = ({ user }) => {
+const Navbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const isAuthenticated = localStorage.getItem("token");
+  const [profile, setProfile] = useState(null);
+  const [profileError, setProfileError] = useState(null);
+  const currentUser =
+    isAuthenticated && profile?.locationKey === location.key ? profile.user : null;
+  const currentProfileError =
+    isAuthenticated && profileError?.locationKey === location.key ? profileError.message : "";
+
+  useEffect(() => {
+    let isMounted = true;
+
+    if (!isAuthenticated) {
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    const loadCurrentUser = async () => {
+      try {
+        const response = await api.get("/me");
+        if (isMounted) {
+          setProfile({ locationKey: location.key, user: response.data });
+          setProfileError(null);
+        }
+      } catch (error) {
+        if (isMounted) {
+          console.error("Could not verify the current user role:", error);
+          setProfileError({
+            locationKey: location.key,
+            message: "Could not verify account status.",
+          });
+        }
+      }
+    };
+
+    loadCurrentUser();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isAuthenticated, location.key]);
 
   const handleLogout = () => {
     localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    setProfile(null);
+    setProfileError(null);
     navigate("/login");
   };
 
@@ -70,6 +115,18 @@ const Navbar = ({ user }) => {
               >
                 My activity
               </Link>
+              {currentUser?.role === "admin" && (
+                <Link
+                  to="/admin"
+                  className={
+                    location.pathname === "/admin"
+                      ? "text-emerald-800"
+                      : "hover:text-emerald-800 transition"
+                  }
+                >
+                  Admin
+                </Link>
+              )}
               <Link
                 to="/me"
                 className={
@@ -83,11 +140,16 @@ const Navbar = ({ user }) => {
             </nav>
 
             <div className="flex items-center gap-3">
-              {user && (
+              {currentUser && (
                 <div className="hidden sm:block text-right">
-                  <div className="text-sm font-bold text-emerald-900">{user.name}</div>
-                  <div className="text-xs text-stone-400">{user.role}</div>
+                  <div className="text-sm font-bold text-emerald-900">{currentUser.name}</div>
+                  <div className="text-xs text-stone-400">{currentUser.role}</div>
                 </div>
+              )}
+              {currentProfileError && (
+                <span className="hidden text-xs text-red-700 sm:inline" role="status">
+                  {currentProfileError}
+                </span>
               )}
               <button
                 type="button"
