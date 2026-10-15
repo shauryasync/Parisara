@@ -12,13 +12,16 @@ import CreateDrive from "./pages/CreateDrive";
 import Drives from "./pages/Drives";
 import ActivityFeed from "./components/ActivityFeed";
 import Admin from "./pages/Admin";
+import AdminOverview from "./pages/AdminOverview";
+import AdminReports from "./pages/AdminReports";
+import AdminUsers from "./pages/AdminUsers";
 
 function App() {
   const location = useLocation();
 
   return (
     <div>
-      {location.pathname !== "/feed" && location.pathname !== "/admin" && <Navbar />}
+      {location.pathname !== "/feed" && !location.pathname.startsWith("/admin") && <Navbar />}
       <main>
         <Routes>
           <Route path="/" element={<Navigate to="/feed" replace />} />
@@ -31,7 +34,11 @@ function App() {
           <Route
             path="/admin"
             element={localStorage.getItem("token") ? <Admin /> : <Navigate to="/login" replace />}
-          />
+          >
+            <Route index element={<AdminOverview />} />
+            <Route path="reports" element={<AdminReports />} />
+            <Route path="users" element={<AdminUsers />} />
+          </Route>
           <Route path="/reports/create-report" element={<CreateReport />} />
           <Route path="/reports/:id" element={<ReportDetail />} />
           <Route path="/reports/:id/edit" element={<CreateReport />} />

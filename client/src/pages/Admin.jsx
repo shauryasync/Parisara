@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { ArrowLeft, FileText, LayoutDashboard, ShieldCheck, Users } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import api from "../services/api";
 
 const adminSections = [
@@ -8,22 +8,26 @@ const adminSections = [
     icon: LayoutDashboard,
     title: "Overview",
     description: "Dashboard landing page",
+    to: "/admin",
   },
   {
     icon: FileText,
     title: "Reports",
     description: "Review and moderate reports",
+    to: "/admin/reports",
   },
   {
     icon: Users,
     title: "Users",
     description: "Search users and manage roles",
+    to: "/admin/users",
   },
 ];
 
 const Admin = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [retryKey, setRetryKey] = useState(0);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -33,14 +37,23 @@ const Admin = () => {
       try {
         const response = await api.get("/me");
 
-        if (response.data.role !== "admin") {
+        if (isMounted && response.data.role !== "admin") {
+          navigate("/feed", { replace: true });
+        }
+      } catch (requestError) {
+        if (!isMounted || requestError.response?.status === 401) {
+          return;
+        }
+
+        if (requestError.response?.status === 403) {
           navigate("/feed", { replace: true });
           return;
         }
-      } catch (requestError) {
-        if (isMounted) {
-          setError(requestError.response?.data?.message || "Could not verify admin access.");
-        }
+
+        setError(
+          requestError.response?.data?.message ||
+            "Could not verify admin access. Please try again.",
+        );
       } finally {
         if (isMounted) {
           setLoading(false);
@@ -53,7 +66,7 @@ const Admin = () => {
     return () => {
       isMounted = false;
     };
-  }, [navigate]);
+  }, [navigate, retryKey]);
 
   if (loading) {
     return (
@@ -69,7 +82,18 @@ const Admin = () => {
         className="min-h-screen bg-slate-950 px-6 py-12 text-center text-red-300"
         role="alert"
       >
-        {error}
+        <p>{error}</p>
+        <button
+          type="button"
+          onClick={() => {
+            setError("");
+            setLoading(true);
+            setRetryKey((current) => current + 1);
+          }}
+          className="mt-5 rounded-lg bg-slate-800 px-4 py-2 font-medium text-white transition hover:bg-slate-700"
+        >
+          Retry
+        </button>
       </div>
     );
   }
@@ -90,17 +114,21 @@ const Admin = () => {
 
           <div className="grid gap-8 px-6 py-7 sm:grid-cols-2 sm:px-8">
             <nav aria-label="Admin sections" className="space-y-3">
-              {adminSections.map(({ icon: Icon, title, description }, index) => (
-                <div
+              {adminSections.map(({ icon: Icon, title, description, to }) => (
+                <NavLink
+                  to={to}
+                  end={to === "/admin"}
                   key={title}
-                  className={`rounded-2xl p-4 ${
-                    index === 0 ? "bg-slate-800/80 text-white" : "text-slate-300"
-                  }`}
+                  className={({ isActive }) =>
+                    `block rounded-2xl p-4 transition hover:bg-slate-800/80 ${
+                      isActive ? "bg-slate-800/80 text-white" : "text-slate-300"
+                    }`
+                  }
                 >
                   <Icon className="mb-3" size={23} aria-hidden="true" />
                   <h2 className="font-semibold">{title}</h2>
                   <p className="mt-1 text-sm text-slate-400">{description}</p>
-                </div>
+                </NavLink>
               ))}
               <Link
                 to="/feed"
@@ -116,17 +144,8 @@ const Admin = () => {
               </Link>
             </nav>
 
-            <div className="grid content-start gap-4 sm:grid-cols-2">
-              {adminSections.map(({ icon: Icon, title, description }) => (
-                <section
-                  key={title}
-                  className="rounded-2xl border border-slate-800 bg-slate-950/50 p-5"
-                >
-                  <Icon className="mb-4 text-emerald-300" size={24} aria-hidden="true" />
-                  <h2 className="font-semibold text-white">{title}</h2>
-                  <p className="mt-1 text-sm leading-6 text-slate-400">{description}</p>
-                </section>
-              ))}
+            <div className="min-w-0">
+              <Outlet />
             </div>
           </div>
 
