@@ -58,6 +58,39 @@ const AdminUsers = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [retryKey, setRetryKey] = useState(0);
+  const [currentUserId, setCurrentUserId] = useState("");
+  const [currentUserError, setCurrentUserError] = useState("");
+  const [selectedRoleChange, setSelectedRoleChange] = useState(null);
+  const [pendingRoleChangeUserId, setPendingRoleChangeUserId] = useState("");
+  const [roleActionError, setRoleActionError] = useState("");
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadCurrentUser = async () => {
+      try {
+        const response = await api.get("/me");
+        if (typeof response.data?._id !== "string" || !response.data._id) {
+          throw new Error("The server returned an invalid current-user response.");
+        }
+
+        if (isMounted) setCurrentUserId(response.data._id);
+      } catch (requestError) {
+        if (isMounted) {
+          setCurrentUserError(
+            requestError.response?.data?.message ||
+              requestError.message ||
+              "Could not verify the signed-in administrator. Role changes are unavailable.",
+          );
+        }
+      }
+    };
+
+    loadCurrentUser();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -127,6 +160,54 @@ const AdminUsers = () => {
     setRoleFilter("all");
     setVerificationFilter("all");
     setPage(1);
+  };
+
+  const selectRoleChange = (user, role) => {
+    setRoleActionError("");
+    setSelectedRoleChange(
+      role === user.role
+        ? null
+        : { userId: user._id, name: user.name, username: user.username, role },
+    );
+  };
+
+  const confirmRoleChange = async () => {
+    if (!selectedRoleChange || pendingRoleChangeUserId) return;
+
+    const { userId, name, username, role } = selectedRoleChange;
+    const targetRole = role === "admin" ? "admin" : "user";
+    const confirmationMessage =
+      targetRole === "admin"
+        ? `Promote ${name} (@${username}) to admin? This grants access to administrative tools, including report moderation and user role management.`
+        : `Demote ${name} (@${username}) from admin to a regular user?`;
+
+    if (!window.confirm(confirmationMessage)) return;
+
+    setPendingRoleChangeUserId(userId);
+    setRoleActionError("");
+
+    try {
+      const response = await api.patch(`/admin/users/${userId}/role`, { role: targetRole });
+      const updatedUser = response.data?.data;
+      if (
+        response.data?.success !== true ||
+        updatedUser?._id !== userId ||
+        updatedUser.role !== targetRole
+      ) {
+        throw new Error("The server returned an invalid role update response.");
+      }
+
+      setSelectedRoleChange(null);
+      setRetryKey((current) => current + 1);
+    } catch (requestError) {
+      setRoleActionError(
+        requestError.response?.data?.message ||
+          requestError.message ||
+          "Unable to update the user's role. Please retry.",
+      );
+    } finally {
+      setPendingRoleChangeUserId("");
+    }
   };
 
   return (
@@ -215,6 +296,52 @@ const AdminUsers = () => {
         </form>
       </div>
 
+      {currentUserError && (
+        <p
+          className="rounded-xl border border-amber-900/60 bg-amber-950/30 p-3 text-sm text-amber-200"
+          role="alert"
+        >
+          {currentUserError}
+        </p>
+      )}
+      {roleActionError && (
+        <p
+          className="rounded-xl border border-red-900/60 bg-red-950/40 p-3 text-sm text-red-300"
+          role="alert"
+        >
+          {roleActionError}
+        </p>
+      )}
+      {selectedRoleChange && (
+        <div className="flex flex-col gap-3 rounded-xl border border-slate-700 bg-slate-900 p-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-slate-300" role="status">
+            Change {selectedRoleChange.name} (@{selectedRoleChange.username}) to{" "}
+            <span className="font-semibold text-emerald-300">
+              {selectedRoleChange.role === "admin" ? "Admin" : "User"}
+            </span>
+            ?
+          </p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setSelectedRoleChange(null)}
+              disabled={Boolean(pendingRoleChangeUserId)}
+              className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-medium text-slate-300 transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={confirmRoleChange}
+              disabled={Boolean(pendingRoleChangeUserId)}
+              className="rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white transition hover:bg-emerald-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 disabled:cursor-wait disabled:opacity-50"
+            >
+              {pendingRoleChangeUserId ? "Saving role..." : "Confirm role change"}
+            </button>
+          </div>
+        </div>
+      )}
+
       {loading ? (
         <div
           className="rounded-2xl border border-slate-800 bg-slate-950/50 p-10 text-center text-slate-400"
@@ -278,6 +405,26 @@ const AdminUsers = () => {
                       >
                         {user.role === "admin" ? "Admin" : "User"}
                       </p>
+                      {currentUserId && user._id !== currentUserId && (
+                        <label className="mt-2 block">
+                          <span className="sr-only">Select a role for {user.name}</span>
+                          <select
+                            className={inputClassName}
+                            disabled={Boolean(pendingRoleChangeUserId)}
+                            value={
+                              selectedRoleChange?.userId === user._id
+                                ? selectedRoleChange.role
+                                : user.role
+                            }
+                            onChange={(event) => selectRoleChange(user, event.target.value)}
+                          >
+                            <option value={user.role}>Keep current role</option>
+                            <option value={user.role === "admin" ? "user" : "admin"}>
+                              Change to {user.role === "admin" ? "User" : "Admin"}
+                            </option>
+                          </select>
+                        </label>
+                      )}
                     </div>
                     <div>
                       <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
