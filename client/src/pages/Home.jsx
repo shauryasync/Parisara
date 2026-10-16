@@ -373,9 +373,17 @@ export default function Feed() {
         <aside className="flex flex-col gap-4 lg:sticky lg:top-24 lg:col-span-3">
           <section className="rounded-2xl border border-emerald-950/[0.06] bg-white p-5 shadow-[0_8px_24px_rgba(27,82,64,0.04),0_2px_6px_rgba(0,0,0,0.02)]">
             <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-emerald-900 font-feed text-lg font-semibold text-white ring-4 ring-emerald-50">
-                {user.name.charAt(0).toUpperCase()}
-              </div>
+              {user.avatar ? (
+                <img
+                  src={user.avatar}
+                  alt=""
+                  className="h-12 w-12 shrink-0 rounded-full object-cover ring-4 ring-emerald-50"
+                />
+              ) : (
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-emerald-900 font-feed text-lg font-semibold text-white ring-4 ring-emerald-50">
+                  {user.name.charAt(0).toUpperCase()}
+                </div>
+              )}
               <div className="min-w-0">
                 <h2 className="truncate text-sm font-bold text-emerald-950">{user.name}</h2>
                 <p className="mt-0.5 text-xs text-stone-500">{formatLabel(user.role)}</p>

@@ -41,9 +41,11 @@ const Navbar = () => {
     };
 
     loadCurrentUser();
+    window.addEventListener("parisara:profile-updated", loadCurrentUser);
 
     return () => {
       isMounted = false;
+      window.removeEventListener("parisara:profile-updated", loadCurrentUser);
     };
   }, [isAuthenticated, location.key]);
 
@@ -147,11 +149,27 @@ const Navbar = () => {
 
             <div className="flex shrink-0 items-center gap-3">
               {currentUser && (
-                <div className="hidden text-right sm:block">
-                  <div className="max-w-32 truncate text-sm font-bold text-emerald-900">
-                    {currentUser.name}
+                <div className="hidden min-w-0 items-center gap-2 sm:flex">
+                  {currentUser.avatar ? (
+                    <img
+                      src={currentUser.avatar}
+                      alt=""
+                      className="h-9 w-9 shrink-0 rounded-full object-cover ring-2 ring-emerald-100"
+                    />
+                  ) : (
+                    <span
+                      aria-hidden="true"
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-xs font-bold uppercase text-emerald-950 ring-2 ring-emerald-50"
+                    >
+                      {(currentUser.username || currentUser.name || "P").charAt(0)}
+                    </span>
+                  )}
+                  <div className="min-w-0 text-right">
+                    <div className="max-w-32 truncate text-sm font-bold text-emerald-900">
+                      @{currentUser.username}
+                    </div>
+                    <div className="text-xs text-stone-400">{currentUser.role}</div>
                   </div>
-                  <div className="text-xs text-stone-400">{currentUser.role}</div>
                 </div>
               )}
               {currentProfileError && (

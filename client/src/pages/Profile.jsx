@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   CalendarDays,
+  Camera,
   Check,
   Clock3,
   FileText,
@@ -73,6 +74,7 @@ const mapReport = (report) => ({
 
 const Profile = () => {
   const navigate = useNavigate();
+  const avatarInputRef = useRef(null);
   const [user, setUser] = useState(null);
   const [reports, setReports] = useState([]);
   const [reportTotal, setReportTotal] = useState(0);
@@ -92,6 +94,8 @@ const Profile = () => {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState("");
   const [actionError, setActionError] = useState("");
+  const [avatarError, setAvatarError] = useState("");
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
 
   useEffect(() => {
@@ -186,6 +190,30 @@ const Profile = () => {
         .some((value) => value.toLowerCase().includes(normalizedSearch)),
     );
   }, [drives, search]);
+
+  const handleAvatarChange = async (event) => {
+    const image = event.target.files?.[0];
+    event.target.value = "";
+    if (!image) return;
+
+    setAvatarError("");
+    setUploadingAvatar(true);
+    const payload = new FormData();
+    payload.append("avatar", image);
+
+    try {
+      const response = await api.patch("/me/avatar", payload);
+      setUser((current) => ({ ...current, avatar: response.data.avatar }));
+      if (response.data.cleanupWarning) setAvatarError(response.data.cleanupWarning);
+      window.dispatchEvent(new Event("parisara:profile-updated"));
+    } catch (requestError) {
+      setAvatarError(
+        requestError.response?.data?.message || "Unable to update your profile photo.",
+      );
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
 
   const loadMore = async () => {
     setLoadingMore(true);
@@ -298,14 +326,43 @@ const Profile = () => {
           />
           <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center sm:gap-5">
-              <div className="relative flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-2xl font-bold tracking-wide text-emerald-950 ring-4 ring-white shadow-sm sm:h-24 sm:w-24">
-                {initials}
+              <div className="relative h-20 w-20 shrink-0 sm:h-24 sm:w-24">
+                {user.avatar ? (
+                  <img
+                    src={user.avatar}
+                    alt={`${user.name}'s profile`}
+                    className="h-full w-full rounded-full object-cover ring-4 ring-white shadow-sm"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center rounded-full bg-emerald-100 text-2xl font-bold tracking-wide text-emerald-950 ring-4 ring-white shadow-sm">
+                    {initials}
+                  </div>
+                )}
                 <span
                   className="absolute bottom-0.5 right-0.5 flex h-7 w-7 items-center justify-center rounded-full bg-emerald-900 text-white ring-2 ring-white"
                   title={`${formatLabel(user.role)} account`}
                 >
                   <ShieldCheck size={15} aria-hidden="true" />
                 </span>
+                <input
+                  ref={avatarInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  onChange={handleAvatarChange}
+                  aria-label="Choose a profile photo"
+                  disabled={uploadingAvatar}
+                />
+                <button
+                  type="button"
+                  onClick={() => avatarInputRef.current?.click()}
+                  disabled={uploadingAvatar}
+                  aria-label={user.avatar ? "Change profile photo" : "Add profile photo"}
+                  title={user.avatar ? "Change profile photo" : "Add profile photo"}
+                  className="absolute bottom-0.5 left-0.5 flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-emerald-900 text-white shadow-sm transition hover:bg-emerald-800 disabled:cursor-wait disabled:opacity-70"
+                >
+                  <Camera size={15} aria-hidden="true" />
+                </button>
               </div>
               <div className="min-w-0">
                 <div className="mb-2 flex flex-wrap items-center gap-2">
@@ -342,6 +399,14 @@ const Profile = () => {
                     </>
                   )}
                 </div>
+                {(avatarError || uploadingAvatar) && (
+                  <p
+                    className={`mt-2 text-xs ${avatarError ? "text-red-700" : "text-stone-500"}`}
+                    role={avatarError ? "alert" : "status"}
+                  >
+                    {avatarError || "Uploading profile photo..."}
+                  </p>
+                )}
               </div>
             </div>
             <Link
