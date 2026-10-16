@@ -1,5 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
-import { Clock, TrendingUp, MapPin, CalendarDays, Flame, Search } from "lucide-react";
+import {
+  Clock,
+  TrendingUp,
+  MapPin,
+  CalendarDays,
+  Flame,
+  Search,
+  SlidersHorizontal,
+  AlertTriangle,
+} from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import ReportCard from "../components/ReportCard";
@@ -59,6 +68,13 @@ function mapReport(report) {
       author: comment.user?.name || comment.user?.username || "Community member",
       text: comment.content,
     })),
+    linkedDrives: (report.linkedDrives || []).map((drive) => ({
+      id: drive._id,
+      title: drive.title,
+      startsAt: drive.startsAt,
+      meetingPoint: drive.meetingPoint,
+      status: drive.status,
+    })),
   };
 }
 
@@ -85,14 +101,15 @@ export default function Feed() {
   const [commentingReportId, setCommentingReportId] = useState(null);
   const [activityRefreshKey, setActivityRefreshKey] = useState(0);
 
+  const isAuthenticated = Boolean(localStorage.getItem("token"));
   const [drives, setDrives] = useState([]);
-  const [loadingDrives, setLoadingDrives] = useState(true);
+  const [joinedDriveCount, setJoinedDriveCount] = useState(0);
+  const [loadingDrives, setLoadingDrives] = useState(isAuthenticated);
   const [drivesError, setDrivesError] = useState(null);
   const [trendingZones, setTrendingZones] = useState([]);
   const [showAllTrendingZones, setShowAllTrendingZones] = useState(false);
   const [loadingTrendingZones, setLoadingTrendingZones] = useState(true);
   const [trendingZonesError, setTrendingZonesError] = useState(null);
-  const isAuthenticated = Boolean(localStorage.getItem("token"));
 
   useEffect(() => {
     const controller = new AbortController();
@@ -132,6 +149,7 @@ export default function Feed() {
           signal: controller.signal,
         });
         setDrives(response.data.data || []);
+        setJoinedDriveCount(response.data.pagination?.joinedTotal ?? 0);
       } catch (requestError) {
         if (requestError.code !== "ERR_CANCELED") {
           setDrivesError(requestError.response?.data?.message || "Unable to load your Drives");
@@ -314,16 +332,6 @@ export default function Feed() {
 
   const user = currentUser || { name: "Guest", username: "", role: "Visitor" };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-stone-50 p-8 text-center text-stone-500">Loading feed...</div>
-    );
-  }
-
-  if (error) {
-    return <div className="min-h-screen bg-stone-50 p-8 text-center text-red-600">{error}</div>;
-  }
-
   const toggleCategory = (cat) => {
     setPage(1);
     setActiveCategories((prev) =>
@@ -349,102 +357,175 @@ export default function Feed() {
     setPage(1);
   };
 
+  const resetFilters = () => {
+    setSearch("");
+    setActiveCategories([]);
+    setActiveStatuses([]);
+    setActiveFilter("nearby");
+    setPage(1);
+  };
+
   return (
-    <div className="min-h-screen bg-stone-50 flex flex-col">
+    <div className="flex min-h-screen flex-col bg-[#f4f6f0] font-feed text-stone-800">
       <Navbar user={user} />
 
-      <div className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* left: profile + category filter */}
-        <aside className="lg:col-span-3 flex flex-col gap-4 lg:sticky lg:top-20">
-          <div className="bg-white rounded-2xl border border-stone-200 p-4 flex items-center gap-3">
-            <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-800 font-bold flex-shrink-0">
-              {user.name.charAt(0)}
+      <div className="mx-auto grid w-full max-w-7xl flex-1 grid-cols-1 items-start gap-5 px-4 py-5 sm:px-6 lg:grid-cols-12 xl:gap-6">
+        <aside className="flex flex-col gap-4 lg:sticky lg:top-24 lg:col-span-3">
+          <section className="rounded-2xl border border-emerald-950/[0.06] bg-white p-5 shadow-[0_8px_24px_rgba(27,82,64,0.04),0_2px_6px_rgba(0,0,0,0.02)]">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-emerald-900 font-feed text-lg font-semibold text-white ring-4 ring-emerald-50">
+                {user.name.charAt(0).toUpperCase()}
+              </div>
+              <div className="min-w-0">
+                <h2 className="truncate text-sm font-bold text-emerald-950">{user.name}</h2>
+                <p className="mt-0.5 text-xs text-stone-500">{formatLabel(user.role)}</p>
+              </div>
             </div>
-            <div className="min-w-0">
-              <div className="font-bold text-emerald-900 truncate">{user.name}</div>
-              <div className="text-xs text-stone-400">{formatLabel(user.role)}</div>
+            <p className="mt-4 text-sm leading-relaxed text-stone-600">
+              Every local observation helps build a healthier, more resilient community.
+            </p>
+            <div className="mt-4 flex items-center justify-around border-t border-stone-100 pt-4 text-center">
+              <div>
+                <p className="font-feed text-2xl font-semibold text-emerald-950">
+                  {myReportCount}
+                </p>
+                <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500">
+                  Reports shared
+                </p>
+              </div>
+              <span className="h-8 w-px bg-stone-200" aria-hidden="true" />
+              <div>
+                <p className="font-feed text-2xl font-semibold text-emerald-950">
+                  {loadingDrives || drivesError ? "—" : joinedDriveCount}
+                </p>
+                <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500">
+                  Drives joined
+                </p>
+              </div>
             </div>
-          </div>
+          </section>
 
-          <div className="bg-white rounded-2xl border border-stone-200 p-4 grid grid-cols-3 text-center divide-x divide-stone-200">
-            <div>
-              <div className="font-bold text-emerald-900">{myReportCount}</div>
-              <div className="text-xs text-stone-400">Reports</div>
+          <section className="rounded-2xl border border-emerald-950/[0.06] bg-white p-5 shadow-[0_8px_24px_rgba(27,82,64,0.04),0_2px_6px_rgba(0,0,0,0.02)]">
+            <div className="flex items-center justify-between border-b border-stone-100 pb-3">
+              <h2 className="flex items-center gap-2 text-sm font-bold text-emerald-950">
+                <SlidersHorizontal size={15} aria-hidden="true" />
+                Issue filters
+              </h2>
+              <button
+                type="button"
+                onClick={resetFilters}
+                className="text-xs font-semibold text-sky-700 transition hover:text-sky-900 hover:underline"
+              >
+                Reset
+              </button>
             </div>
-            <div>
-              <div className="font-bold text-emerald-900">0</div>
-              <div className="text-xs text-stone-400">Drives</div>
-            </div>
-            <div>
-              <div className="font-bold text-emerald-900">0</div>
-              <div className="text-xs text-stone-400">Impact</div>
-            </div>
-          </div>
 
-          <div className="bg-white rounded-2xl border border-stone-200 p-4">
-            <h3 className="text-sm font-bold text-emerald-900 mb-3">Filters</h3>
-            <p className="text-xs font-semibold text-stone-400 mb-2">Category</p>
-            <div className="flex flex-wrap gap-2 mb-4">
-              {CATEGORIES.map((category) => {
-                const active = activeCategories.includes(category.value);
-                return (
-                  <button
-                    key={category.value}
-                    type="button"
-                    onClick={() => toggleCategory(category.value)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${
-                      active
-                        ? "bg-emerald-800 text-white"
-                        : "bg-stone-100 text-stone-600 hover:bg-stone-200"
-                    }`}
-                  >
-                    {category.label}
-                  </button>
-                );
-              })}
-            </div>
-            <p className="text-xs font-semibold text-stone-400 mb-2">Status</p>
-            <div className="flex flex-col gap-1.5">
-              {STATUSES.map((status) => (
-                <label
-                  key={status.value}
-                  className="flex items-center gap-2 text-sm text-stone-600 cursor-pointer"
-                >
-                  <input
-                    type="checkbox"
-                    checked={activeStatuses.includes(status.value)}
-                    onChange={() => toggleStatus(status.value)}
-                    className="rounded border-stone-300 text-emerald-700 focus:ring-emerald-600"
-                  />
-                  {status.label}
-                </label>
-              ))}
-            </div>
-          </div>
-        </aside>
-
-        {/* centre: feed */}
-        <main className="lg:col-span-6 flex flex-col gap-6">
-          <section className="bg-white rounded-2xl border border-stone-200 p-3">
-            <div className="mb-3">
-              <div className="relative">
-                <Search
-                  size={16}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400"
-                />
-                <input
-                  type="text"
-                  placeholder="Search reports, places, categories..."
-                  value={search}
-                  onChange={(e) => {
+            <div className="mt-4">
+              <p className="mb-2.5 text-[10px] font-bold uppercase tracking-[0.14em] text-stone-500">
+                Categories
+              </p>
+              <div className="space-y-1">
+                <button
+                  type="button"
+                  aria-pressed={activeCategories.length === 0}
+                  onClick={() => {
+                    setActiveCategories([]);
                     setPage(1);
-                    setSearch(e.target.value);
                   }}
-                  className="w-full rounded-xl border border-stone-200 bg-stone-50 py-2.5 pl-9 pr-3 text-sm text-stone-700 placeholder:text-stone-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-100"
-                />
+                  className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-xs font-semibold transition ${
+                    activeCategories.length === 0
+                      ? "bg-emerald-900/10 text-emerald-950"
+                      : "text-stone-600 hover:bg-stone-50"
+                  }`}
+                >
+                  <span>All issues</span>
+                  {activeCategories.length === 0 && (
+                    <span className="h-2 w-2 rounded-full bg-emerald-800" />
+                  )}
+                </button>
+                {CATEGORIES.map((category) => {
+                  const active = activeCategories.includes(category.value);
+                  return (
+                    <button
+                      key={category.value}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => toggleCategory(category.value)}
+                      className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-xs transition ${
+                        active
+                          ? "bg-emerald-900/10 font-semibold text-emerald-950"
+                          : "text-stone-600 hover:bg-stone-50 hover:text-emerald-900"
+                      }`}
+                    >
+                      <span>{category.label}</span>
+                      {active && <span className="h-2 w-2 rounded-full bg-emerald-800" />}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
+            <div className="mt-4 border-t border-stone-100 pt-4">
+              <p className="mb-2.5 text-[10px] font-bold uppercase tracking-[0.14em] text-stone-500">
+                Status
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {STATUSES.map((status) => {
+                  const active = activeStatuses.includes(status.value);
+                  return (
+                    <button
+                      key={status.value}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => toggleStatus(status.value)}
+                      className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold transition ${
+                        active
+                          ? "border-emerald-900/20 bg-emerald-900/10 text-emerald-950"
+                          : "border-stone-200 bg-white text-stone-600 hover:border-emerald-800/30 hover:text-emerald-900"
+                      }`}
+                    >
+                      {formatLabel(status.label)}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </section>
+        </aside>
+
+        <main className="flex flex-col gap-4 lg:col-span-6">
+          <section className="flex flex-col gap-3 rounded-2xl border border-emerald-950/[0.06] bg-white p-3.5 shadow-[0_8px_24px_rgba(27,82,64,0.04),0_2px_6px_rgba(0,0,0,0.02)] sm:flex-row">
+            <div className="relative min-w-0 flex-1">
+              <Search
+                size={17}
+                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-500"
+                aria-hidden="true"
+              />
+              <input
+                type="search"
+                placeholder="Search reports, locations, or categories..."
+                value={search}
+                onChange={(e) => {
+                  setPage(1);
+                  setSearch(e.target.value);
+                }}
+                aria-label="Search environmental reports"
+                className="w-full rounded-xl border border-emerald-950/[0.08] bg-[#f6f7f3] py-2.5 pl-10 pr-3 text-sm text-stone-800 placeholder:text-stone-500 focus:border-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-100"
+              />
+            </div>
+            <Link
+              to="/reports/create-report"
+              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-[#c95031] px-4 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-[#ad4025] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#c95031]"
+            >
+              <AlertTriangle size={15} aria-hidden="true" />
+              Report issue
+            </Link>
+          </section>
+
+          <section
+            aria-label="Feed sorting"
+            className="flex flex-col gap-3 px-1 sm:flex-row sm:items-center sm:justify-between"
+          >
             <div className="flex flex-wrap items-center gap-2">
               {FILTERS.map(({ label, icon: Icon, key }) => {
                 const active = activeFilter === key;
@@ -452,45 +533,83 @@ export default function Feed() {
                   <button
                     key={key}
                     type="button"
+                    aria-pressed={active}
                     onClick={() => selectFilter(key)}
-                    className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm font-medium transition ${
+                    className={`flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-semibold transition ${
                       active
-                        ? "bg-emerald-900 text-white"
-                        : "bg-stone-100 text-stone-500 hover:bg-stone-200"
+                        ? "bg-emerald-950 text-white shadow-sm"
+                        : "border border-emerald-950/[0.07] bg-white text-stone-600 hover:text-emerald-950"
                     }`}
                   >
-                    <Icon size={16} />
+                    <Icon size={14} />
                     <span>{label}</span>
                   </button>
                 );
               })}
             </div>
+            <p className="text-xs text-stone-500" aria-live="polite">
+              {reports.length} {reports.length === 1 ? "report" : "reports"}
+              {search.trim() ? " found" : ""}
+            </p>
           </section>
 
-          <div className="flex flex-col gap-6">
-            {(supportError || saveError || commentError) && (
-              <p role="alert" className="text-sm text-red-700">
-                {supportError || saveError || commentError}
-              </p>
+          {error && (
+            <div
+              role="alert"
+              className="rounded-xl border border-red-200 bg-white px-4 py-3 text-sm text-red-800"
+            >
+              {error}
+            </div>
+          )}
+          {(supportError || saveError || commentError) && (
+            <p
+              role="alert"
+              className="rounded-xl border border-red-200 bg-white px-4 py-3 text-sm text-red-800"
+            >
+              {supportError || saveError || commentError}
+            </p>
+          )}
+
+          <div className="flex flex-col gap-4">
+            {loading && reports.length === 0 ? (
+              <div
+                role="status"
+                className="rounded-2xl border border-emerald-950/[0.06] bg-white p-6 text-sm text-stone-500 shadow-sm"
+              >
+                Loading community reports...
+              </div>
+            ) : (
+              reports.map((report) => (
+                <ReportCard
+                  key={report.id}
+                  report={report}
+                  isAuthenticated={Boolean(currentUser)}
+                  onSupport={handleSupport}
+                  supporting={supportingReportId === report.id}
+                  onSave={handleSave}
+                  saving={savingReportId === report.id}
+                  onComment={handleComment}
+                  commenting={commentingReportId === report.id}
+                />
+              ))
             )}
-            {reports.map((report) => (
-              <ReportCard
-                key={report.id}
-                report={report}
-                isAuthenticated={Boolean(currentUser)}
-                onSupport={handleSupport}
-                supporting={supportingReportId === report.id}
-                onSave={handleSave}
-                saving={savingReportId === report.id}
-                onComment={handleComment}
-                commenting={commentingReportId === report.id}
-              />
-            ))}
           </div>
 
-          {reports.length === 0 && (
-            <div className="text-center py-16 text-stone-400 text-sm">
-              No reports yet — be the first to report an issue nearby.
+          {!loading && !error && reports.length === 0 && (
+            <div className="rounded-2xl border border-dashed border-stone-300 bg-white px-5 py-12 text-center">
+              <h2 className="font-feed text-xl font-semibold text-emerald-950">
+                No reports match these filters
+              </h2>
+              <p className="mt-2 text-sm text-stone-500">
+                Try a different search or clear your filters to see more community reports.
+              </p>
+              <button
+                type="button"
+                onClick={resetFilters}
+                className="mt-4 rounded-full bg-emerald-950 px-4 py-2 text-xs font-semibold text-white transition hover:bg-emerald-800"
+              >
+                Clear filters
+              </button>
             </div>
           )}
 
@@ -499,31 +618,43 @@ export default function Feed() {
               type="button"
               onClick={() => setPage((currentPage) => currentPage + 1)}
               disabled={isFetchingReports}
-              className="self-center rounded-lg border border-stone-300 bg-white px-4 py-2 text-sm font-semibold text-emerald-800 hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-60"
+              className="self-center rounded-full border border-emerald-900/15 bg-white px-5 py-2.5 text-sm font-semibold text-emerald-900 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {loadingMore ? "Loading..." : "Load more"}
+              {loadingMore ? "Loading more reports..." : "Load more reports"}
             </button>
           )}
         </main>
 
-        {/* right: upcoming drives or events [future scope] */}
-        <aside className="lg:col-span-3 flex flex-col gap-4 lg:sticky lg:top-20">
+        <aside className="flex flex-col gap-4 lg:sticky lg:top-24 lg:col-span-3">
           {currentUser && <ActivityFeed compact refreshKey={activityRefreshKey} />}
-          <div className="bg-white rounded-2xl border border-stone-200 p-4">
-            <h3 className="text-sm font-bold text-emerald-900 mb-3 flex items-center gap-2">
-              <Flame size={16} className="text-emerald-700" />
-              Trending Zones
-            </h3>
-            <p className="mb-3 text-xs text-stone-400">Based on active reports from the last 30 days</p>
+          <section className="rounded-2xl border border-emerald-950/[0.06] bg-white p-5 shadow-[0_8px_24px_rgba(27,82,64,0.04),0_2px_6px_rgba(0,0,0,0.02)]">
+            <div className="flex items-center justify-between border-b border-stone-100 pb-3">
+              <h2 className="flex items-center gap-2 text-sm font-bold text-emerald-950">
+                <Flame size={16} className="text-[#c95031]" />
+                Trending hotspots
+              </h2>
+              <span className="rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-800">
+                Live
+              </span>
+            </div>
+            <p className="mb-3 mt-3 text-xs leading-relaxed text-stone-500">
+              Active report locations from the last 30 days
+            </p>
             {loadingTrendingZones ? (
-              <p role="status" className="text-xs text-stone-400">Loading trending zones...</p>
+              <p role="status" className="text-xs text-stone-500">
+                Loading trending hotspots...
+              </p>
             ) : trendingZonesError ? (
-              <p role="alert" className="text-xs text-red-600">{trendingZonesError}</p>
+              <p role="alert" className="text-xs text-red-700">
+                {trendingZonesError}
+              </p>
             ) : trendingZones.length === 0 ? (
-              <p className="text-xs text-stone-500">No active report hotspots yet.</p>
+              <p className="rounded-xl bg-stone-50 px-3 py-4 text-xs text-stone-500">
+                No active report hotspots yet.
+              </p>
             ) : (
               <>
-                <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-1">
                   {(showAllTrendingZones
                     ? trendingZones
                     : trendingZones.slice(0, TRENDING_ZONE_PREVIEW_COUNT)
@@ -532,21 +663,31 @@ export default function Feed() {
                       key={zone.name}
                       type="button"
                       onClick={() => searchZone(zone.name)}
-                      className="flex w-full items-center justify-between gap-3 rounded-lg p-2 text-left text-sm transition hover:bg-stone-50"
+                      className="group flex w-full items-start justify-between gap-3 rounded-xl p-2.5 text-left transition hover:bg-[#f6f7f3]"
                     >
                       <span className="min-w-0">
-                        <span className="block truncate font-medium text-emerald-900">
+                        <span className="block truncate text-xs font-semibold text-stone-800 transition group-hover:text-emerald-800">
                           {zone.name}
                         </span>
-                        <span className="text-xs text-stone-400">
+                        <span className="mt-1 block text-[11px] text-stone-500">
                           {zone.reportCount} active {zone.reportCount === 1 ? "report" : "reports"}
                         </span>
                       </span>
-                      <MapPin
-                        size={16}
-                        className="shrink-0 text-emerald-700"
-                        aria-hidden="true"
-                      />
+                      <span
+                        className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold ${
+                          zone.reportCount >= 20
+                            ? "bg-[#c95031]/10 text-[#a83e24]"
+                            : zone.reportCount >= 10
+                              ? "bg-amber-100 text-amber-800"
+                              : "bg-emerald-900/10 text-emerald-900"
+                        }`}
+                      >
+                        {zone.reportCount >= 20
+                          ? "High"
+                          : zone.reportCount >= 10
+                            ? "Elevated"
+                            : "Active"}
+                      </span>
                     </button>
                   ))}
                 </div>
@@ -555,61 +696,102 @@ export default function Feed() {
                     type="button"
                     aria-expanded={showAllTrendingZones}
                     onClick={() => setShowAllTrendingZones((expanded) => !expanded)}
-                    className="mt-2 w-full rounded-md px-2 py-2 text-left text-sm font-semibold text-emerald-800 hover:bg-emerald-50"
+                    className="mt-2 w-full rounded-lg px-2 py-2 text-center text-xs font-semibold text-sky-700 transition hover:bg-sky-50"
                   >
                     {showAllTrendingZones
                       ? "Show less"
-                      : `View all ${trendingZones.length} zones`}
+                      : `View all ${trendingZones.length} hotspots`}
                   </button>
                 )}
               </>
             )}
-          </div>
+          </section>
 
-          <div className="bg-white rounded-2xl border border-stone-200 p-4">
-            <h3 className="text-sm font-bold text-emerald-900 mb-3 flex items-center gap-2">
-              <CalendarDays size={16} className="text-emerald-700" />
-              Your Upcoming Drives
-            </h3>
-            {!isAuthenticated ? (
-              <div className="text-xs text-stone-500">
-                <Link to="/login" className="font-semibold text-emerald-700 hover:underline">
-                  Sign in
-                </Link>{" "}
-                to see the Drives you have joined.
-              </div>
-            ) : loadingDrives ? (
-              <div className="text-xs text-stone-400">Loading drives...</div>
-            ) : drivesError ? (
-              <div className="text-xs text-red-600">{drivesError}</div>
-            ) : drives.length === 0 ? (
-              <div className="text-xs text-stone-400">You haven&apos;t joined any upcoming Drives.</div>
-            ) : (
-              <div className="flex flex-col gap-3">
-                {drives.map((drive) => (
-                  <Link
-                    key={drive._id}
-                    to={`/drives/${drive._id}`}
-                    className="text-sm cursor-pointer hover:bg-stone-50 p-1 -mx-1 rounded transition-colors"
-                  >
-                    <div className="font-medium text-emerald-900">{drive.title}</div>
-                    <div className="text-xs text-stone-400">
-                      {formatDriveDate(drive.startsAt)}
-                      {drive.maxParticipants ? ` · ${drive.maxParticipants} max spots` : ""}
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )}
-            <Link
-              to="/drives"
-              className="block w-full mt-3 py-2 text-center text-xs font-bold text-emerald-700 hover:underline"
-            >
-              View all drives →
-            </Link>
-          </div>
+          <section className="rounded-2xl border border-emerald-950/[0.06] bg-white p-5 shadow-[0_8px_24px_rgba(27,82,64,0.04),0_2px_6px_rgba(0,0,0,0.02)]">
+            <div className="flex items-center justify-between border-b border-stone-100 pb-3">
+              <h2 className="flex items-center gap-2 text-sm font-bold text-emerald-950">
+                <CalendarDays size={16} className="text-emerald-800" />
+                Upcoming drives
+              </h2>
+              <Link to="/drives" className="text-xs font-semibold text-sky-700 hover:underline">
+                View all
+              </Link>
+            </div>
+            <div className="mt-3">
+              {!isAuthenticated ? (
+                <p className="text-xs leading-relaxed text-stone-500">
+                  <Link to="/login" className="font-semibold text-emerald-800 hover:underline">
+                    Sign in
+                  </Link>{" "}
+                  to see the drives you have joined.
+                </p>
+              ) : loadingDrives ? (
+                <p role="status" className="text-xs text-stone-500">
+                  Loading your drives...
+                </p>
+              ) : drivesError ? (
+                <p role="alert" className="text-xs text-red-700">
+                  {drivesError}
+                </p>
+              ) : drives.length === 0 ? (
+                <p className="rounded-xl bg-stone-50 px-3 py-4 text-xs leading-relaxed text-stone-500">
+                  You haven&apos;t joined any upcoming drives.
+                </p>
+              ) : (
+                <div className="flex flex-col gap-2.5">
+                  {drives.map((drive) => (
+                    <Link
+                      key={drive._id}
+                      to={`/drives/${drive._id}`}
+                      className="flex items-center gap-3 rounded-xl bg-[#f6f7f3] p-3 transition hover:bg-emerald-50"
+                    >
+                      <span className="flex h-10 w-10 shrink-0 flex-col items-center justify-center rounded-lg bg-emerald-900 text-white">
+                        <span className="text-[8px] font-bold uppercase tracking-wide">
+                          {new Date(drive.startsAt).toLocaleDateString("en-US", { month: "short" })}
+                        </span>
+                        <span className="text-sm font-bold leading-none">
+                          {new Date(drive.startsAt).getDate()}
+                        </span>
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block truncate text-xs font-semibold text-stone-800">
+                          {drive.title}
+                        </span>
+                        <span className="mt-1 block text-[11px] text-stone-500">
+                          {formatDriveDate(drive.startsAt)}
+                          {drive.maxParticipants ? ` · ${drive.maxParticipants} spots` : ""}
+                        </span>
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
         </aside>
       </div>
+
+      <footer className="mt-8 border-t border-emerald-950/[0.06] bg-white/70">
+        <div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-5 text-xs text-stone-500 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <p>
+            <span className="mr-2 font-feed text-base font-bold text-emerald-950">
+              Parisara
+            </span>
+            Community action for environmental stewardship.
+          </p>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <Link to="/drives" className="transition hover:text-emerald-800">
+              Community drives
+            </Link>
+            <Link to="/reports/create-report" className="transition hover:text-emerald-800">
+              Report an issue
+            </Link>
+            <Link to="/activity" className="transition hover:text-emerald-800">
+              My activity
+            </Link>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

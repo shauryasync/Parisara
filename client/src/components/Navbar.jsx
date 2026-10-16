@@ -56,20 +56,26 @@ const Navbar = () => {
   };
 
   return (
-    <header className="border-b border-stone-200 bg-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-6">
-        <Link to="/feed" className="text-xl font-black tracking-tight text-emerald-900">
-          Parisara
+    <header className="sticky top-0 z-40 border-b border-emerald-950/5 bg-white/95 shadow-[0_4px_20px_rgba(27,82,64,0.05)] backdrop-blur">
+      <div className="mx-auto flex h-[4.5rem] max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
+        <Link
+          to="/feed"
+          className="flex shrink-0 items-center gap-2.5 font-feed text-xl font-bold tracking-tight text-emerald-950"
+        >
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-900 font-feed text-sm font-bold text-white">
+            P
+          </span>
+          <span>Parisara</span>
         </Link>
 
         {isAuthenticated ? (
           <>
-            <nav className="hidden sm:flex items-center gap-6 text-sm font-semibold text-stone-500">
+            <nav className="hidden items-center gap-3 text-xs font-semibold text-stone-500 sm:flex xl:gap-5">
               <Link
                 to="/feed"
                 className={
                   location.pathname === "/feed"
-                    ? "text-emerald-800"
+                    ? "border-b-2 border-emerald-900 pb-1 text-emerald-900"
                     : "hover:text-emerald-800 transition"
                 }
               >
@@ -79,7 +85,7 @@ const Navbar = () => {
                 to="/drives"
                 className={
                   location.pathname === "/drives"
-                    ? "text-emerald-800"
+                    ? "border-b-2 border-emerald-900 pb-1 text-emerald-900"
                     : "hover:text-emerald-800 transition"
                 }
               >
@@ -89,7 +95,7 @@ const Navbar = () => {
                 to="/reports/create-report"
                 className={
                   location.pathname === "/reports/create-report"
-                    ? "text-emerald-800"
+                    ? "border-b-2 border-emerald-900 pb-1 text-emerald-900"
                     : "hover:text-emerald-800 transition"
                 }
               >
@@ -99,7 +105,7 @@ const Navbar = () => {
                 to="/drives/create"
                 className={
                   location.pathname === "/drives/create"
-                    ? "text-emerald-800"
+                    ? "border-b-2 border-emerald-900 pb-1 text-emerald-900"
                     : "hover:text-emerald-800 transition"
                 }
               >
@@ -109,7 +115,7 @@ const Navbar = () => {
                 to="/activity"
                 className={
                   location.pathname === "/activity"
-                    ? "text-emerald-800"
+                    ? "border-b-2 border-emerald-900 pb-1 text-emerald-900"
                     : "hover:text-emerald-800 transition"
                 }
               >
@@ -120,7 +126,7 @@ const Navbar = () => {
                   to="/admin"
                   className={
                     location.pathname === "/admin"
-                      ? "text-emerald-800"
+                      ? "border-b-2 border-emerald-900 pb-1 text-emerald-900"
                       : "hover:text-emerald-800 transition"
                   }
                 >
@@ -131,7 +137,7 @@ const Navbar = () => {
                 to="/me"
                 className={
                   location.pathname === "/me"
-                    ? "text-emerald-800"
+                    ? "border-b-2 border-emerald-900 pb-1 text-emerald-900"
                     : "hover:text-emerald-800 transition"
                 }
               >
@@ -139,10 +145,12 @@ const Navbar = () => {
               </Link>
             </nav>
 
-            <div className="flex items-center gap-3">
+            <div className="flex shrink-0 items-center gap-3">
               {currentUser && (
-                <div className="hidden sm:block text-right">
-                  <div className="text-sm font-bold text-emerald-900">{currentUser.name}</div>
+                <div className="hidden text-right sm:block">
+                  <div className="max-w-32 truncate text-sm font-bold text-emerald-900">
+                    {currentUser.name}
+                  </div>
                   <div className="text-xs text-stone-400">{currentUser.role}</div>
                 </div>
               )}
@@ -154,7 +162,7 @@ const Navbar = () => {
               <button
                 type="button"
                 onClick={handleLogout}
-                className="text-sm font-semibold text-stone-500 hover:text-emerald-800 transition"
+                className="rounded-full px-3 py-2 text-xs font-semibold text-stone-500 transition hover:bg-stone-100 hover:text-emerald-800"
               >
                 Log out
               </button>

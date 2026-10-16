@@ -1,4 +1,5 @@
 import Report from "../models/report.model.js";
+import Drive from "../models/drive.model.js";
 import { unlink } from "fs/promises";
 import { deleteImageFromCloudinary, uploadOnCloudinary } from "../utils/cloudinary.js";
 import Support from "../models/support.model.js";
@@ -118,8 +119,7 @@ const getReports = async (req, res) => {
       return res.status(400).json({ success: false, message: "Invalid pagination values" });
     }
 
-    const filter =
-      req.user?.role === "admin" ? {} : { isHidden: { $ne: true } };
+    const filter = req.user?.role === "admin" ? {} : { isHidden: { $ne: true } };
     const allowedCategories = ["pollution", "waste", "deforestation", "water", "other"];
     const allowedStatuses = ["reported", "in-progress", "resolved"];
     const categories =
@@ -186,6 +186,24 @@ const getReports = async (req, res) => {
         };
       }),
     );
+
+    const linkedDrives = await Drive.find({
+      report: { $in: fetchedReports.map((report) => report._id) },
+    })
+      .select("title startsAt meetingPoint status report")
+      .sort({ startsAt: 1 })
+      .lean();
+    const drivesByReport = new Map();
+    linkedDrives.forEach((drive) => {
+      const reportId = drive.report.toString();
+      const reportDrives = drivesByReport.get(reportId) || [];
+      reportDrives.push(drive);
+      drivesByReport.set(reportId, reportDrives);
+    });
+
+    reportsWithDetails.forEach((report) => {
+      report.linkedDrives = drivesByReport.get(report._id.toString()) || [];
+    });
 
     return res.status(200).json({
       message: fetchedReports.length > 0 ? "Fetched Report" : "No Report",

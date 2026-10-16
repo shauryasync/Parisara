@@ -252,7 +252,7 @@ const getDrives = async (req, res) => {
     if (status === "upcoming" || status === "ongoing") {
       query.status = { $nin: ["completed", "cancelled"] };
       query.startsAt = status === "upcoming" ? { $gt: now } : { $lte: now };
-    } else {
+    } else if (status !== "all") {
       query.status = status;
     }
     if (type) {
@@ -264,6 +264,7 @@ const getDrives = async (req, res) => {
       }
       query.report = report;
     }
+    let joinedDriveIds = null;
     if (joinedOnly) {
       if (!req.user) {
         return res.status(401).json({
@@ -272,13 +273,18 @@ const getDrives = async (req, res) => {
         });
       }
 
-      const joinedDriveIds = await DriveParticipant.distinct("drive", { user: req.user._id });
+      joinedDriveIds = await DriveParticipant.distinct("drive", { user: req.user._id });
       query._id = { $in: joinedDriveIds };
     }
 
     const skip = (page - 1) * limit;
 
-    const totalDrives = await Drive.countDocuments(query);
+    const [totalDrives, joinedTotal] = await Promise.all([
+      Drive.countDocuments(query),
+      joinedDriveIds
+        ? Drive.countDocuments({ _id: { $in: joinedDriveIds } })
+        : Promise.resolve(undefined),
+    ]);
     const drives = await Drive.find(query).sort({ startsAt: 1 }).skip(skip).limit(limit);
 
     res.status(200).json({
@@ -290,6 +296,7 @@ const getDrives = async (req, res) => {
       }),
       pagination: {
         total: totalDrives,
+        ...(joinedTotal !== undefined && { joinedTotal }),
         page,
         limit,
         pages: Math.ceil(totalDrives / limit),
@@ -593,20 +600,32 @@ const editDrive = async (req, res) => {
     }
 
     if (updates.requiredMaterials !== undefined) {
-      if (!Array.isArray(updates.requiredMaterials) || updates.requiredMaterials.some(m => typeof m !== 'string' || !m.trim())) {
+      if (
+        !Array.isArray(updates.requiredMaterials) ||
+        updates.requiredMaterials.some((m) => typeof m !== "string" || !m.trim())
+      ) {
         return res.status(400).json({
           success: false,
           message: "Required materials must be an array of non-empty strings",
         });
       }
-      updates.requiredMaterials = updates.requiredMaterials.map(m => m.trim());
+      updates.requiredMaterials = updates.requiredMaterials.map((m) => m.trim());
     }
 
     for (const [key, value] of Object.entries(updates)) {
-      if (['title', 'description', 'meetingPoint', 'issueLocation', 'organizerNote', 'contactInformation'].includes(key)) {
-         if (value !== undefined && value !== null) {
-            updates[key] = value.trim();
-         }
+      if (
+        [
+          "title",
+          "description",
+          "meetingPoint",
+          "issueLocation",
+          "organizerNote",
+          "contactInformation",
+        ].includes(key)
+      ) {
+        if (value !== undefined && value !== null) {
+          updates[key] = value.trim();
+        }
       }
     }
 
@@ -621,7 +640,9 @@ const editDrive = async (req, res) => {
   } catch (error) {
     console.error("Error editing drive:", error);
     if (error.name === "ValidationError") {
-       return res.status(400).json({ success: false, message: "Invalid Drive data", error: error.message });
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid Drive data", error: error.message });
     }
     return res.status(500).json({ success: false, message: "Unable to edit drive" });
   }
@@ -667,7 +688,7 @@ const addCoOrganizer = async (req, res) => {
       });
     }
 
-    if (drive.coOrganizers.some(c => String(c) === String(targetUserId))) {
+    if (drive.coOrganizers.some((c) => String(c) === String(targetUserId))) {
       return res.status(400).json({
         success: false,
         message: "User is already a co-organizer",
@@ -729,7 +750,7 @@ const removeCoOrganizer = async (req, res) => {
       });
     }
 
-    const isTargetCoOrganizer = drive.coOrganizers.some(c => String(c) === String(targetUserId));
+    const isTargetCoOrganizer = drive.coOrganizers.some((c) => String(c) === String(targetUserId));
     if (!isTargetCoOrganizer) {
       return res.status(400).json({
         success: false,
@@ -737,7 +758,7 @@ const removeCoOrganizer = async (req, res) => {
       });
     }
 
-    drive.coOrganizers = drive.coOrganizers.filter(c => String(c) !== String(targetUserId));
+    drive.coOrganizers = drive.coOrganizers.filter((c) => String(c) !== String(targetUserId));
     await drive.save();
 
     return res.status(200).json({
