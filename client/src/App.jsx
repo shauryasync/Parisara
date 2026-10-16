@@ -4,6 +4,7 @@ import Register from "./pages/Register";
 import VerifyEmail from "./pages/VerifyEmail";
 import { Route, Routes, Navigate, useLocation } from "react-router-dom";
 import Navbar from "./components/Navbar";
+import Footer from "./components/Footer";
 import CreateReport from "./pages/CreateReport";
 import Home from "./pages/Home";
 import ReportDetail from "./pages/ReportDetail";
@@ -20,9 +21,9 @@ function App() {
   const location = useLocation();
 
   return (
-    <div>
+    <div className="flex min-h-screen flex-col">
       {location.pathname !== "/feed" && !location.pathname.startsWith("/admin") && <Navbar />}
-      <main>
+      <main className="flex-1">
         <Routes>
           <Route path="/" element={<Navigate to="/feed" replace />} />
           <Route path="/login" element={<Login />} />
@@ -52,6 +53,7 @@ function App() {
           <Route path="/drives/:id" element={<DriveDetail />} />
         </Routes>
       </main>
+      <Footer />
     </div>
   );
 }

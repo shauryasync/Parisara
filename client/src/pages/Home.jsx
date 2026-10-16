@@ -394,9 +394,7 @@ export default function Feed() {
             </p>
             <div className="mt-4 flex items-center justify-around border-t border-stone-100 pt-4 text-center">
               <div>
-                <p className="font-feed text-2xl font-semibold text-emerald-950">
-                  {myReportCount}
-                </p>
+                <p className="font-feed text-2xl font-semibold text-emerald-950">{myReportCount}</p>
                 <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500">
                   Reports shared
                 </p>
@@ -778,28 +776,6 @@ export default function Feed() {
           </section>
         </aside>
       </div>
-
-      <footer className="mt-8 border-t border-emerald-950/[0.06] bg-white/70">
-        <div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-5 text-xs text-stone-500 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-          <p>
-            <span className="mr-2 font-feed text-base font-bold text-emerald-950">
-              Parisara
-            </span>
-            Community action for environmental stewardship.
-          </p>
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-            <Link to="/drives" className="transition hover:text-emerald-800">
-              Community drives
-            </Link>
-            <Link to="/reports/create-report" className="transition hover:text-emerald-800">
-              Report an issue
-            </Link>
-            <Link to="/activity" className="transition hover:text-emerald-800">
-              My activity
-            </Link>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }
