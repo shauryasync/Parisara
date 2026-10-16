@@ -30,7 +30,7 @@ const protect = async (req, res, next) => {
 
   try {
     const user = await User.findById(decoded._id).select(
-      "_id name username email role isVerified createdAt",
+      "_id name username email role isVerified createdAt avatar avatarPublicId",
     );
 
     if (!user) {
@@ -83,7 +83,7 @@ const optionalAuth = async (req, res, next) => {
     }
 
     req.user = await User.findById(decoded._id).select(
-      "_id name username email role isVerified createdAt",
+      "_id name username email role isVerified createdAt avatar avatarPublicId",
     );
   } catch {
     req.user = null;

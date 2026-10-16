@@ -14,3 +14,31 @@ const storage = multer.diskStorage({
 });
 
 export const upload = multer({ storage });
+
+const avatarUpload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (["image/jpeg", "image/png", "image/webp"].includes(file.mimetype)) {
+      cb(null, true);
+      return;
+    }
+
+    cb(new multer.MulterError("LIMIT_UNEXPECTED_FILE", file.fieldname));
+  },
+});
+
+export const uploadAvatar = (req, res, next) => {
+  avatarUpload.single("avatar")(req, res, (error) => {
+    if (error instanceof multer.MulterError) {
+      const message =
+        error.code === "LIMIT_FILE_SIZE"
+          ? "Profile photos must be 5 MB or smaller."
+          : "Choose a JPEG, PNG, or WebP image for your profile photo.";
+      return res.status(400).json({ message });
+    }
+
+    if (error) return next(error);
+    next();
+  });
+};
