@@ -285,14 +285,46 @@ const getDrives = async (req, res) => {
         ? Drive.countDocuments({ _id: { $in: joinedDriveIds } })
         : Promise.resolve(undefined),
     ]);
-    const drives = await Drive.find(query).sort({ startsAt: 1 }).skip(skip).limit(limit);
+    const drives = await Drive.find(query)
+      .populate("organizer", "name username")
+      .populate("coOrganizers", "name username")
+      .populate("report", "title")
+      .sort({ startsAt: 1 })
+      .skip(skip)
+      .limit(limit);
+    const driveIds = drives.map((drive) => drive._id);
+    const [participantCounts, currentUserJoinedIds] = await Promise.all([
+      DriveParticipant.aggregate([
+        { $match: { drive: { $in: driveIds } } },
+        { $group: { _id: "$drive", count: { $sum: 1 } } },
+      ]),
+      req.user
+        ? DriveParticipant.distinct("drive", {
+            user: req.user._id,
+            drive: { $in: driveIds },
+          })
+        : Promise.resolve([]),
+    ]);
+    const participantCountByDrive = new Map(
+      participantCounts.map(({ _id, count }) => [String(_id), count]),
+    );
+    const currentUserJoinedSet = new Set(currentUserJoinedIds.map(String));
 
     res.status(200).json({
       success: true,
       data: drives.map((drive) => {
         const driveObj = drive.toObject();
         driveObj.status = getDerivedStatus(drive, now);
-        return driveObj;
+        return {
+          ...driveObj,
+          participantCount: participantCountByDrive.get(String(drive._id)) || 0,
+          isJoined: currentUserJoinedSet.has(String(drive._id)),
+          isOrganizer: Boolean(
+            req.user &&
+              (String(drive.organizer?._id || drive.organizer) === String(req.user._id) ||
+                drive.coOrganizers.some((coOrganizer) => String(coOrganizer._id) === String(req.user._id))),
+          ),
+        };
       }),
       pagination: {
         total: totalDrives,
