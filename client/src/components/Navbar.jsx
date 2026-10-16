@@ -62,12 +62,14 @@ const Navbar = () => {
       <div className="mx-auto flex h-[4.5rem] max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
         <Link
           to="/feed"
-          className="flex shrink-0 items-center gap-2.5 font-feed text-xl font-bold tracking-tight text-emerald-950"
+          aria-label="Parisara home"
+          className="flex h-12 w-12 shrink-0 items-center justify-center"
         >
-          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-900 font-feed text-sm font-bold text-white">
-            P
-          </span>
-          <span>Parisara</span>
+          <img
+            src="/parisara-mark.png"
+            alt=""
+            className="h-12 w-12 object-contain"
+          />
         </Link>
 
         {isAuthenticated ? (
