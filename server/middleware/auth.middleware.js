@@ -29,7 +29,9 @@ const protect = async (req, res, next) => {
   }
 
   try {
-    const user = await User.findById(decoded._id).select("_id name username email role isVerified");
+    const user = await User.findById(decoded._id).select(
+      "_id name username email role isVerified createdAt",
+    );
 
     if (!user) {
       return res.status(401).json({
@@ -80,7 +82,9 @@ const optionalAuth = async (req, res, next) => {
       return next();
     }
 
-    req.user = await User.findById(decoded._id).select("_id name username email role isVerified");
+    req.user = await User.findById(decoded._id).select(
+      "_id name username email role isVerified createdAt",
+    );
   } catch {
     req.user = null;
   }

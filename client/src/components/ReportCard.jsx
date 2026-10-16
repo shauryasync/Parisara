@@ -55,6 +55,7 @@ const ReportCard = ({
   onComment,
   commenting = false,
   readOnlyInteractions = false,
+  onUnsave,
 }) => {
   const navigate = useNavigate();
 
@@ -264,6 +265,17 @@ const ReportCard = ({
               <Share2 size={16} />
               <span>{report.shares || 0} shares</span>
             </span>
+            {onUnsave && (
+              <button
+                type="button"
+                onClick={() => onUnsave(report)}
+                aria-label={`Remove ${report.title} from saved reports`}
+                title="Remove saved report"
+                className="flex h-8 w-8 items-center justify-center rounded-full text-emerald-800 transition hover:bg-stone-100"
+              >
+                <Bookmark size={16} fill="currentColor" />
+              </button>
+            )}
           </>
         ) : (
           <>

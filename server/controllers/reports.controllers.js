@@ -99,7 +99,7 @@ const createReport = async (req, res) => {
 
 const getReports = async (req, res) => {
   try {
-    const { category, status, search, sort } = req.query;
+    const { category, status, search, sort, mine } = req.query;
     const page = Number(req.query.page ?? 1);
     const requestedLimit = Number(req.query.limit ?? 10);
 
@@ -130,13 +130,19 @@ const getReports = async (req, res) => {
       categories.some((value) => !allowedCategories.includes(value)) ||
       statuses.some((value) => !allowedStatuses.includes(value)) ||
       (search !== undefined && typeof search !== "string") ||
-      (sort !== undefined && sort !== "recent")
+      (sort !== undefined && sort !== "recent") ||
+      (mine !== undefined && mine !== "true" && mine !== "false")
     ) {
       return res.status(400).json({ success: false, message: "Invalid report filters" });
     }
 
+    if (mine === "true" && !req.user?._id) {
+      return res.status(401).json({ success: false, message: "Sign in to view your reports" });
+    }
+
     if (categories.length) filter.category = { $in: categories };
     if (statuses.length) filter.status = { $in: statuses };
+    if (mine === "true") filter.reportedBy = req.user._id;
 
     if (search && search.trim()) {
       const query = search.trim();
@@ -161,6 +167,15 @@ const getReports = async (req, res) => {
       Report.countDocuments(filter),
       req.user?._id ? Report.countDocuments({ reportedBy: req.user._id }) : 0,
     ]);
+    const myReportIds =
+      mine === "true" ? await Report.distinct("_id", { reportedBy: req.user._id }) : [];
+    const [myReportSupportCount, myReportCommentCount] =
+      mine === "true"
+        ? await Promise.all([
+            Support.countDocuments({ report: { $in: myReportIds } }),
+            Comment.countDocuments({ report: { $in: myReportIds } }),
+          ])
+        : [undefined, undefined];
 
     const reportsWithDetails = await Promise.all(
       fetchedReports.map(async (report) => {
@@ -209,6 +224,7 @@ const getReports = async (req, res) => {
       message: fetchedReports.length > 0 ? "Fetched Report" : "No Report",
       data: reportsWithDetails,
       myReportCount,
+      ...(mine === "true" && { myReportSupportCount, myReportCommentCount }),
       pagination: {
         currentPage: page,
         limit,
