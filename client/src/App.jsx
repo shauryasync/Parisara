@@ -19,10 +19,13 @@ import AdminUsers from "./pages/AdminUsers";
 
 function App() {
   const location = useLocation();
+  const isAuthPage = location.pathname === "/login" || location.pathname === "/register";
 
   return (
     <div className="flex min-h-screen flex-col">
-      {location.pathname !== "/feed" && !location.pathname.startsWith("/admin") && <Navbar />}
+      {!isAuthPage && location.pathname !== "/feed" && !location.pathname.startsWith("/admin") && (
+        <Navbar />
+      )}
       <main className="flex-1">
         <Routes>
           <Route path="/" element={<Navigate to="/feed" replace />} />
@@ -53,7 +56,7 @@ function App() {
           <Route path="/drives/:id" element={<DriveDetail />} />
         </Routes>
       </main>
-      <Footer />
+      {!isAuthPage && <Footer />}
     </div>
   );
 }
