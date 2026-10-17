@@ -390,7 +390,7 @@ export default function Feed() {
               </div>
             </div>
             <p className="mt-4 text-sm leading-relaxed text-stone-600">
-              Every local observation helps build a healthier, more resilient community.
+              The planet can't post so we do.
             </p>
             <div className="mt-4 flex items-center justify-around border-t border-stone-100 pt-4 text-center">
               <div>
