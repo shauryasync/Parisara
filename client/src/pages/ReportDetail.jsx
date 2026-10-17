@@ -2,6 +2,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, CalendarDays, Share2, ThumbsUp, MapPin, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import api from "../services/api";
+import ReportImageGallery from "../components/ReportImageGallery";
 
 const ReportDetail = () => {
   const { id } = useParams();
@@ -265,16 +266,8 @@ const ReportDetail = () => {
           <ArrowLeft size={18} aria-hidden="true" /> Back to reports
         </Link>
 
-        <header className="relative flex min-h-64 items-end overflow-hidden rounded-lg bg-stone-800 sm:min-h-80">
-          {report.images?.[0] && (
-            <img
-              src={report.images[0]}
-              alt={report.title}
-              className="absolute inset-0 h-full w-full object-cover"
-            />
-          )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
-          <div className="relative p-5 text-white sm:p-8">
+        <header className="rounded-2xl bg-emerald-950 p-5 text-white shadow-sm sm:p-8">
+          <div>
             <div className="mb-3 flex gap-2 text-xs font-semibold">
               <span className="rounded bg-emerald-100 px-2.5 py-1 text-emerald-950 capitalize">
                 {status}
@@ -290,21 +283,7 @@ const ReportDetail = () => {
             </p>
           </div>
         </header>
-        {report.images?.length > 1 && (
-          <section
-            aria-label="Report images"
-            className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4"
-          >
-            {report.images.slice(1).map((imageUrl, index) => (
-              <img
-                key={`${imageUrl}-${index}`}
-                src={imageUrl}
-                alt={`${report.title} evidence ${index + 2}`}
-                className="aspect-[4/3] w-full rounded-lg object-cover"
-              />
-            ))}
-          </section>
-        )}
+        <ReportImageGallery images={report.images || []} title={report.title} />
 
         <div className="mt-5 grid gap-5 lg:grid-cols-3">
           <div className="flex flex-col gap-4 lg:col-span-2">

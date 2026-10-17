@@ -2,7 +2,7 @@ import { ArrowUpRight, Heart, Leaf } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const Footer = () => (
-  <footer className="relative mt-8 border-t border-emerald-950/10 bg-[#e9eee8]">
+  <footer className="relative mt-12 border-t border-emerald-950/10 bg-[#e9eee8]">
     <img
       src="/protect_planet.png"
       alt="Protect our planet"

@@ -49,6 +49,7 @@ const mapReport = (report) => ({
   category: report.category,
   location: report.placename,
   status: report.status,
+  images: report.images || [],
   image: report.images?.[0] || null,
   supportCount: report.supportCount || 0,
   supportedByCurrentUser: report.supportedByCurrentUser || false,

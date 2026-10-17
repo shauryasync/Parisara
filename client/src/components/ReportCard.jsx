@@ -11,6 +11,7 @@ import {
   CalendarDays,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
+import ReportImageGallery from "./ReportImageGallery";
 
 const CATEGORY_STYLES = {
   water: "bg-teal-100 text-teal-800",
@@ -71,6 +72,11 @@ const ReportCard = ({
   const supportCount = report.supportCount ?? report.likes ?? 0;
   const commentCount = report.commentCount ?? comments.length;
   const statusDotStyle = STATUS_STYLES[report.status] || "bg-stone-400";
+  const reportImages = report.images?.length
+    ? report.images
+    : report.image
+      ? [report.image]
+      : [];
 
   const handleCommentSubmit = async (e) => {
     e.preventDefault();
@@ -182,19 +188,8 @@ const ReportCard = ({
         )}
       </div>
 
-      {report.image ? (
-        <button
-          type="button"
-          onClick={() => navigate(`/reports/${report.id}`)}
-          aria-label={`Open report: ${report.title}`}
-          className="group relative mt-4 block h-56 w-full overflow-hidden rounded-xl bg-stone-100 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 sm:h-64"
-        >
-          <img
-            src={report.image}
-            alt={report.title}
-            className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.02]"
-          />
-        </button>
+      {reportImages.length > 0 ? (
+        <ReportImageGallery images={reportImages} title={report.title} />
       ) : (
         <button
           type="button"
