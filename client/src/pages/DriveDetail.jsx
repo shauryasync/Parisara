@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import api from "../services/api";
+import ConfirmDialog from "../components/ConfirmDialog";
 
 const formatDriveDate = (dateString) => {
   if (!dateString) return "TBD";
@@ -71,6 +72,7 @@ export default function DriveDetail() {
 
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState("");
+  const [confirmation, setConfirmation] = useState(null);
 
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [outcomeText, setOutcomeText] = useState("");
@@ -247,7 +249,6 @@ export default function DriveDetail() {
   };
 
   const handleCancelDrive = async () => {
-    if (!window.confirm("Are you sure you want to cancel this drive?")) return;
     setActionLoading(true);
     setActionError("");
     try {
@@ -298,7 +299,6 @@ export default function DriveDetail() {
   };
 
   const handleDeleteComment = async (commentId) => {
-    if (!window.confirm("Delete this comment?")) return;
     setDeletingCommentId(commentId);
     setCommentsError("");
     try {
@@ -585,7 +585,15 @@ export default function DriveDetail() {
                       {drive.status === "upcoming" && (
                         <button
                           type="button"
-                          onClick={handleCancelDrive}
+                          onClick={() =>
+                            setConfirmation({
+                              action: "cancel-drive",
+                              title: "Cancel this drive?",
+                              message:
+                                "Participants will see that this drive has been cancelled. This action cannot be undone.",
+                              confirmLabel: "Cancel drive",
+                            })
+                          }
                           disabled={actionLoading}
                           className="px-4 py-2 bg-red-50 text-red-700 border border-red-200 rounded-lg text-sm font-semibold hover:bg-red-100 transition disabled:opacity-50"
                         >
@@ -1048,7 +1056,15 @@ export default function DriveDetail() {
                       {isAuthor && (
                         <button
                           type="button"
-                          onClick={() => handleDeleteComment(comment._id)}
+                          onClick={() =>
+                            setConfirmation({
+                              action: "delete-comment",
+                              commentId: comment._id,
+                              title: "Delete this comment?",
+                              message: "This comment will be permanently removed.",
+                              confirmLabel: "Delete comment",
+                            })
+                          }
                           disabled={deletingCommentId === comment._id}
                           className="text-stone-400 hover:text-red-600 transition p-1"
                           title="Delete comment"
@@ -1065,6 +1081,20 @@ export default function DriveDetail() {
           )}
         </section>
       </main>
+      <ConfirmDialog
+        open={Boolean(confirmation)}
+        title={confirmation?.title}
+        message={confirmation?.message}
+        confirmLabel={confirmation?.confirmLabel}
+        onCancel={() => setConfirmation(null)}
+        onConfirm={() =>
+          confirmation?.action === "cancel-drive"
+            ? handleCancelDrive()
+            : confirmation?.action === "delete-comment"
+              ? handleDeleteComment(confirmation.commentId)
+              : Promise.resolve()
+        }
+      />
     </div>
   );
 }

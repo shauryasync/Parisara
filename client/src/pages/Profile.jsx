@@ -18,6 +18,7 @@ import {
 import api from "../services/api";
 import ActivityFeed from "../components/ActivityFeed";
 import ReportCard from "../components/ReportCard";
+import ConfirmDialog from "../components/ConfirmDialog";
 
 const PROFILE_PAGE_SIZE = 10;
 const SAVED_PAGE_SIZE = 10;
@@ -95,6 +96,7 @@ const Profile = () => {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState("");
   const [actionError, setActionError] = useState("");
+  const [reportToDelete, setReportToDelete] = useState(null);
   const [avatarError, setAvatarError] = useState("");
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
@@ -247,8 +249,6 @@ const Profile = () => {
   };
 
   const handleDelete = async (reportId) => {
-    if (!window.confirm("Are you sure you want to delete this report?")) return;
-
     setActionError("");
     try {
       await api.delete(`/reports/get-reports/${reportId}`);
@@ -579,7 +579,11 @@ const Profile = () => {
                       key={report.id}
                       report={report}
                       canEdit
-                      onDelete={handleDelete}
+                      onDelete={(reportId) =>
+                        setReportToDelete(
+                          reports.find((report) => report.id === reportId) || null,
+                        )
+                      }
                       readOnlyInteractions
                     />
                   ))
@@ -787,6 +791,14 @@ const Profile = () => {
           </aside>
         </div>
       </main>
+      <ConfirmDialog
+        open={Boolean(reportToDelete)}
+        title="Delete this report?"
+        message={`“${reportToDelete?.title || "This report"}” will be permanently deleted. This action cannot be undone.`}
+        confirmLabel="Delete report"
+        onCancel={() => setReportToDelete(null)}
+        onConfirm={() => handleDelete(reportToDelete.id)}
+      />
     </div>
   );
 };

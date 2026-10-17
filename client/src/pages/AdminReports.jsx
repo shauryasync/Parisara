@@ -10,6 +10,7 @@ import {
   Search,
 } from "lucide-react";
 import api from "../services/api";
+import ConfirmDialog from "../components/ConfirmDialog";
 
 const PAGE_SIZE = 10;
 
@@ -376,10 +377,16 @@ const AdminReports = () => {
 
 const ReportModerationCard = ({ report, pendingAction, onHide, onRestore, onStatusChange }) => {
   const [reason, setReason] = useState("");
+  const [confirmHide, setConfirmHide] = useState(false);
   const [imageFailed, setImageFailed] = useState(false);
   const [statusDraft, setStatusDraft] = useState(report.status);
   const busy = Boolean(pendingAction);
   const authorName = report.reportedBy?.name || report.reportedBy?.username || "Community member";
+
+  const handleHide = async () => {
+    const hidden = await onHide(report, reason.trim());
+    if (hidden) setReason("");
+  };
 
   return (
     <article className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-950/50">
@@ -490,15 +497,7 @@ const ReportModerationCard = ({ report, pendingAction, onHide, onRestore, onStat
               className="flex flex-col gap-2 sm:flex-row sm:items-end"
               onSubmit={async (event) => {
                 event.preventDefault();
-                if (
-                  !window.confirm(
-                    `Hide "${report.title}" from public view? You can restore it later.`,
-                  )
-                ) {
-                  return;
-                }
-                const hidden = await onHide(report, reason.trim());
-                if (hidden) setReason("");
+                setConfirmHide(true);
               }}
             >
               <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-300">
@@ -525,6 +524,15 @@ const ReportModerationCard = ({ report, pendingAction, onHide, onRestore, onStat
           )}
         </div>
       </div>
+      <ConfirmDialog
+        open={confirmHide}
+        title="Hide this report?"
+        message={`“${report.title}” will be hidden from public view. You can restore it later.`}
+        confirmLabel="Hide report"
+        variant="dark"
+        onCancel={() => setConfirmHide(false)}
+        onConfirm={handleHide}
+      />
     </article>
   );
 };

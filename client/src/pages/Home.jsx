@@ -4,6 +4,7 @@ import {
   TrendingUp,
   MapPin,
   CalendarDays,
+  ChevronDown,
   Flame,
   Search,
   SlidersHorizontal,
@@ -371,7 +372,7 @@ export default function Feed() {
       <Navbar user={user} />
 
       <div className="mx-auto grid w-full max-w-7xl flex-1 grid-cols-1 items-start gap-5 px-4 py-5 sm:px-6 lg:grid-cols-12 xl:gap-6">
-        <aside className="flex flex-col gap-4 lg:sticky lg:top-24 lg:col-span-3">
+        <aside className="order-2 hidden flex-col gap-4 lg:order-none lg:sticky lg:top-24 lg:col-span-3 lg:flex">
           <section className="rounded-2xl border border-emerald-950/[0.06] bg-white p-5 shadow-[0_8px_24px_rgba(27,82,64,0.04),0_2px_6px_rgba(0,0,0,0.02)]">
             <div className="flex items-center gap-3">
               {user.avatar ? (
@@ -500,7 +501,7 @@ export default function Feed() {
           </section>
         </aside>
 
-        <main className="flex flex-col gap-4 lg:col-span-6">
+        <main className="order-1 flex flex-col gap-4 lg:order-none lg:col-span-6">
           <section className="flex flex-col gap-3 rounded-2xl border border-emerald-950/[0.06] bg-white p-3.5 shadow-[0_8px_24px_rgba(27,82,64,0.04),0_2px_6px_rgba(0,0,0,0.02)] sm:flex-row">
             <div className="relative min-w-0 flex-1">
               <Search
@@ -528,6 +529,107 @@ export default function Feed() {
               Report issue
             </Link>
           </section>
+
+          <details className="group rounded-xl border border-emerald-950/[0.07] bg-white px-3.5 py-2.5 shadow-sm lg:hidden">
+            <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-3 text-sm font-semibold text-emerald-950 [&::-webkit-details-marker]:hidden">
+              <span className="flex items-center gap-2">
+                <SlidersHorizontal size={16} aria-hidden="true" />
+                Filter reports
+              </span>
+              <span className="flex items-center gap-2">
+                {(activeCategories.length > 0 || activeStatuses.length > 0) && (
+                  <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-900">
+                    {activeCategories.length + activeStatuses.length}
+                  </span>
+                )}
+                <ChevronDown
+                  size={16}
+                  className="text-stone-500 transition-transform group-open:rotate-180"
+                  aria-hidden="true"
+                />
+              </span>
+            </summary>
+            <div className="space-y-4 border-t border-stone-100 py-3">
+              <div>
+                <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.12em] text-stone-500">
+                  Category
+                </p>
+                <div className="flex gap-2 overflow-x-auto pb-1">
+                  <button
+                    type="button"
+                    aria-pressed={activeCategories.length === 0}
+                    onClick={() => {
+                      setActiveCategories([]);
+                      setPage(1);
+                    }}
+                    className={`min-h-10 shrink-0 rounded-full border px-3 text-xs font-semibold ${
+                      activeCategories.length === 0
+                        ? "border-emerald-900 bg-emerald-950 text-white"
+                        : "border-stone-200 bg-white text-stone-600"
+                    }`}
+                  >
+                    All
+                  </button>
+                  {CATEGORIES.map((category) => {
+                    const active = activeCategories.includes(category.value);
+                    return (
+                      <button
+                        key={category.value}
+                        type="button"
+                        aria-pressed={active}
+                        onClick={() => toggleCategory(category.value)}
+                        className={`min-h-10 shrink-0 rounded-full border px-3 text-xs font-semibold ${
+                          active
+                            ? "border-emerald-900 bg-emerald-950 text-white"
+                            : "border-stone-200 bg-white text-stone-600"
+                        }`}
+                      >
+                        {category.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div>
+                <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.12em] text-stone-500">
+                  Status
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {STATUSES.map((status) => {
+                    const active = activeStatuses.includes(status.value);
+                    return (
+                      <button
+                        key={status.value}
+                        type="button"
+                        aria-pressed={active}
+                        onClick={() => toggleStatus(status.value)}
+                        className={`min-h-10 rounded-full border px-3 text-xs font-semibold ${
+                          active
+                            ? "border-emerald-900 bg-emerald-950 text-white"
+                            : "border-stone-200 bg-white text-stone-600"
+                        }`}
+                      >
+                        {status.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              {(activeCategories.length > 0 || activeStatuses.length > 0) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveCategories([]);
+                    setActiveStatuses([]);
+                    setPage(1);
+                  }}
+                  className="min-h-10 text-xs font-semibold text-emerald-800 underline underline-offset-2"
+                >
+                  Clear filters
+                </button>
+              )}
+            </div>
+          </details>
 
           <section
             aria-label="Feed sorting"
@@ -632,7 +734,7 @@ export default function Feed() {
           )}
         </main>
 
-        <aside className="flex flex-col gap-4 lg:sticky lg:top-24 lg:col-span-3">
+        <aside className="order-3 hidden flex-col gap-4 lg:order-none lg:sticky lg:top-24 lg:col-span-3 lg:flex">
           {currentUser && <ActivityFeed compact refreshKey={activityRefreshKey} />}
           <section className="rounded-2xl border border-emerald-950/[0.06] bg-white p-5 shadow-[0_8px_24px_rgba(27,82,64,0.04),0_2px_6px_rgba(0,0,0,0.02)]">
             <div className="flex items-center justify-between border-b border-stone-100 pb-3">

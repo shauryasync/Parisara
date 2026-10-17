@@ -16,17 +16,20 @@ import Admin from "./pages/Admin";
 import AdminOverview from "./pages/AdminOverview";
 import AdminReports from "./pages/AdminReports";
 import AdminUsers from "./pages/AdminUsers";
+import MobileNavigation from "./components/MobileNavigation";
 
 function App() {
   const location = useLocation();
   const isAuthPage = location.pathname === "/login" || location.pathname === "/register";
+  const isAdminPage = location.pathname.startsWith("/admin");
+  const showMobileNavigation = !isAuthPage && !isAdminPage;
 
   return (
     <div className="flex min-h-screen flex-col">
       {!isAuthPage && location.pathname !== "/feed" && !location.pathname.startsWith("/admin") && (
         <Navbar />
       )}
-      <main className="flex-1">
+      <main className={`flex-1 ${showMobileNavigation ? "pb-20 md:pb-0" : ""}`}>
         <Routes>
           <Route path="/" element={<Navigate to="/feed" replace />} />
           <Route path="/login" element={<Login />} />
@@ -56,6 +59,7 @@ function App() {
           <Route path="/drives/:id" element={<DriveDetail />} />
         </Routes>
       </main>
+      {showMobileNavigation && <MobileNavigation />}
       {!isAuthPage && <Footer />}
     </div>
   );

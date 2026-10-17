@@ -69,7 +69,7 @@ const Footer = () => (
     </div>
 
     <div className="border-t border-emerald-950/10">
-      <div className="mx-auto flex max-w-7xl flex-col gap-2 px-5 py-5 text-xs text-stone-500 sm:flex-row sm:items-center sm:justify-between sm:px-8">
+      <div className="mx-auto flex max-w-7xl flex-col gap-2 px-5 pb-24 pt-5 text-xs text-stone-500 sm:flex-row sm:items-center sm:justify-between sm:px-8 md:pb-5">
         <p>© {new Date().getFullYear()} Parisara. Growing greener communities together.</p>
         <Link className="transition hover:text-emerald-900" to="/drives">
           Find your next community drive

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight, Search, UserRound, Users } from "lucide-react";
 import api from "../services/api";
+import ConfirmDialog from "../components/ConfirmDialog";
 
 const PAGE_SIZE = 10;
 const inputClassName =
@@ -174,14 +175,8 @@ const AdminUsers = () => {
   const confirmRoleChange = async () => {
     if (!selectedRoleChange || pendingRoleChangeUserId) return;
 
-    const { userId, name, username, role } = selectedRoleChange;
+    const { userId, role } = selectedRoleChange;
     const targetRole = role === "admin" ? "admin" : "user";
-    const confirmationMessage =
-      targetRole === "admin"
-        ? `Promote ${name} (@${username}) to admin? This grants access to administrative tools, including report moderation and user role management.`
-        : `Demote ${name} (@${username}) from admin to a regular user?`;
-
-    if (!window.confirm(confirmationMessage)) return;
 
     setPendingRoleChangeUserId(userId);
     setRoleActionError("");
@@ -312,36 +307,6 @@ const AdminUsers = () => {
           {roleActionError}
         </p>
       )}
-      {selectedRoleChange && (
-        <div className="flex flex-col gap-3 rounded-xl border border-slate-700 bg-slate-900 p-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-slate-300" role="status">
-            Change {selectedRoleChange.name} (@{selectedRoleChange.username}) to{" "}
-            <span className="font-semibold text-emerald-300">
-              {selectedRoleChange.role === "admin" ? "Admin" : "User"}
-            </span>
-            ?
-          </p>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setSelectedRoleChange(null)}
-              disabled={Boolean(pendingRoleChangeUserId)}
-              className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-medium text-slate-300 transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={confirmRoleChange}
-              disabled={Boolean(pendingRoleChangeUserId)}
-              className="rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white transition hover:bg-emerald-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 disabled:cursor-wait disabled:opacity-50"
-            >
-              {pendingRoleChangeUserId ? "Saving role..." : "Confirm role change"}
-            </button>
-          </div>
-        </div>
-      )}
-
       {loading ? (
         <div
           className="rounded-2xl border border-slate-800 bg-slate-950/50 p-10 text-center text-slate-400"
@@ -473,6 +438,30 @@ const AdminUsers = () => {
           </div>
         </>
       )}
+      <ConfirmDialog
+        open={Boolean(selectedRoleChange)}
+        title={
+          selectedRoleChange?.role === "admin"
+            ? "Promote this user to admin?"
+            : "Remove this user's admin access?"
+        }
+        message={
+          selectedRoleChange?.role === "admin"
+            ? `Promoting ${selectedRoleChange?.name} (@${selectedRoleChange?.username}) grants access to administrative tools, including report moderation and user role management.`
+            : `Demoting ${selectedRoleChange?.name} (@${selectedRoleChange?.username}) removes their administrative access.`
+        }
+        confirmLabel={
+          pendingRoleChangeUserId
+            ? "Saving role..."
+            : selectedRoleChange?.role === "admin"
+              ? "Promote to admin"
+              : "Remove admin access"
+        }
+        variant="dark"
+        tone={selectedRoleChange?.role === "admin" ? "neutral" : "danger"}
+        onCancel={() => setSelectedRoleChange(null)}
+        onConfirm={confirmRoleChange}
+      />
     </section>
   );
 };
