@@ -57,7 +57,10 @@ const mapReport = (report) => ({
   savedByCurrentUser: report.savedByCurrentUser || false,
   commentCount: report.commentCount || 0,
   shares: 0,
-  author: { name: report.reportedBy?.name || report.reportedBy?.username || "Anonymous" },
+  author: {
+    name: report.reportedBy?.name || report.reportedBy?.username || "Anonymous",
+    avatar: report.reportedBy?.avatar || "",
+  },
   authorId: report.reportedBy?._id,
   createdAt: report.createdAt,
   comments: (report.recentComments || []).map((comment) => ({

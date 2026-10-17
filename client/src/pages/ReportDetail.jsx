@@ -23,6 +23,7 @@ const ReportDetail = () => {
   const [linkedDrives, setLinkedDrives] = useState([]);
   const [linkedDrivesLoading, setLinkedDrivesLoading] = useState(true);
   const [linkedDrivesError, setLinkedDrivesError] = useState("");
+  const [failedAuthorAvatar, setFailedAuthorAvatar] = useState("");
 
   const navigate = useNavigate();
 
@@ -237,6 +238,7 @@ const ReportDetail = () => {
   if (!report) return null;
 
   const author = report.reportedBy?.name || report.reportedBy?.username || "Community Member";
+  const authorAvatar = report.reportedBy?.avatar || "";
 
   const status = report.status?.replace(/-/g, " ") || "Unknown";
   const coordinates = report.geo?.coordinates;
@@ -289,12 +291,21 @@ const ReportDetail = () => {
           <div className="flex flex-col gap-4 lg:col-span-2">
             <section className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-stone-200 bg-white p-4">
               <div className="flex items-center gap-3">
-                <div
-                  className="flex h-11 w-11 items-center justify-center rounded-full bg-emerald-100 font-bold text-emerald-900"
-                  aria-hidden="true"
-                >
-                  {author.charAt(0).toUpperCase()}
-                </div>
+                {authorAvatar && failedAuthorAvatar !== authorAvatar ? (
+                  <img
+                    src={authorAvatar}
+                    alt=""
+                    className="h-11 w-11 rounded-full bg-emerald-100 object-cover"
+                    onError={() => setFailedAuthorAvatar(authorAvatar)}
+                  />
+                ) : (
+                  <div
+                    className="flex h-11 w-11 items-center justify-center rounded-full bg-emerald-100 font-bold text-emerald-900"
+                    aria-hidden="true"
+                  >
+                    {author.charAt(0).toUpperCase()}
+                  </div>
+                )}
                 <div>
                   <p className="text-sm">
                     Reported by <strong>{author}</strong>

@@ -62,6 +62,7 @@ const ReportCard = ({
 
   const [comment, setComment] = useState("");
   const [shareMessage, setShareMessage] = useState("");
+  const [failedAuthorAvatar, setFailedAuthorAvatar] = useState("");
   const catStyle = CATEGORY_STYLES[report.category] || "bg-stone-100 text-stone-700";
   const authorName =
     typeof report.author?.name === "string" && report.author.name.trim()
@@ -121,9 +122,18 @@ const ReportCard = ({
     <article className="rounded-2xl border border-emerald-950/[0.06] bg-white p-5 shadow-[0_8px_24px_rgba(27,82,64,0.04),0_2px_6px_rgba(0,0,0,0.02)] transition hover:border-emerald-900/20 sm:p-6">
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 font-semibold text-emerald-900 ring-1 ring-emerald-900/10">
-            {authorName.charAt(0).toUpperCase()}
-          </div>
+          {report.author?.avatar && failedAuthorAvatar !== report.author.avatar ? (
+            <img
+              src={report.author.avatar}
+              alt=""
+              className="h-10 w-10 shrink-0 rounded-full bg-emerald-100 object-cover ring-1 ring-emerald-900/10"
+              onError={() => setFailedAuthorAvatar(report.author.avatar)}
+            />
+          ) : (
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 font-semibold text-emerald-900 ring-1 ring-emerald-900/10">
+              {authorName.charAt(0).toUpperCase()}
+            </div>
+          )}
           <div className="min-w-0">
             <div className="truncate text-sm font-semibold text-stone-900">{authorName}</div>
             <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs text-stone-500">

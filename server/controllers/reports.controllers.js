@@ -157,7 +157,7 @@ const getReports = async (req, res) => {
     }
 
     const reportQuery = Report.find(filter)
-      .populate("reportedBy", "name username")
+      .populate("reportedBy", "name username avatar")
       .sort(sort === "recent" ? { createdAt: -1, _id: -1 } : { createdAt: -1 })
       .skip(skip)
       .limit(limit);
@@ -297,7 +297,7 @@ const getReportById = async (req, res) => {
     const report = await Report.findOne({
       _id: id,
       ...(req.user?.role === "admin" ? {} : { isHidden: { $ne: true } }),
-    }).populate("reportedBy", "name username");
+    }).populate("reportedBy", "name username avatar");
 
     if (!report) return res.status(404).json({ message: "Not Found" });
 

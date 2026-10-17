@@ -157,7 +157,7 @@ const getAdminReports = async (req, res) => {
 
     const [reports, total] = await Promise.all([
       Report.find(filter)
-        .populate("reportedBy", "name username")
+        .populate("reportedBy", "name username avatar")
         .populate("moderatedBy", "name username")
         .sort({ createdAt: -1, _id: -1 })
         .skip(skip)
@@ -198,7 +198,7 @@ const updateAdminReportStatus = async (req, res) => {
 
     report.status = status;
     await report.save();
-    await report.populate("reportedBy", "name username");
+    await report.populate("reportedBy", "name username avatar");
 
     return res.status(200).json({
       success: true,

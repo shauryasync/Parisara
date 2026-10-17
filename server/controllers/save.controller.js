@@ -190,7 +190,7 @@ const getSavedReports = async (req, res) => {
     const fetchedReports = await Report.find({
       _id: { $in: pageSaves.map((entry) => entry.report) },
     })
-      .populate("reportedBy", "name username")
+      .populate("reportedBy", "name username avatar")
       .lean();
     const reportById = new Map(fetchedReports.map((report) => [report._id.toString(), report]));
 
