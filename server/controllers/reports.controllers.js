@@ -49,6 +49,7 @@ const createReport = async (req, res) => {
     const { title, details, category, placename } = req.body;
 
     if (!title || !details || !category || !placename) {
+      await Promise.all((req.files || []).map(removeTemporaryUpload));
       return res.status(400).json({
         success: false,
         message: "All fields required",
@@ -57,6 +58,7 @@ const createReport = async (req, res) => {
 
     const geo = parseGeoPoint(req.body.geo);
     if (req.body.geo && !geo) {
+      await Promise.all((req.files || []).map(removeTemporaryUpload));
       return res.status(400).json({ success: false, message: "Invalid location coordinates" });
     }
 
@@ -88,11 +90,15 @@ const createReport = async (req, res) => {
       result,
     });
   } catch (error) {
+    await Promise.all((req.files || []).map(removeTemporaryUpload));
     console.error("Error creating report:", error);
-    const status = error.name === "ValidationError" ? 400 : 500;
+    const status = error.name === "ValidationError" || error.statusCode === 400 ? 400 : 500;
     res.status(status).json({
-      message: status === 400 ? "Invalid report data" : "Something went wrong in creating Report.",
-      error: error.message,
+      success: false,
+      message:
+        status === 400
+          ? error.message || "Invalid report data"
+          : "Something went wrong in creating Report.",
     });
   }
 };
@@ -380,8 +386,16 @@ const updateReport = async (req, res) => {
     await report.save();
     return res.status(200).json({ success: true, data: report });
   } catch (error) {
+    await Promise.all((req.files || []).map(removeTemporaryUpload));
     console.error(error);
-    return res.status(500).json({ message: "Something went wrong updating the report" });
+    const status = error.statusCode === 400 || error.name === "ValidationError" ? 400 : 500;
+    return res.status(status).json({
+      success: false,
+      message:
+        status === 400
+          ? error.message || "Invalid update data"
+          : "Something went wrong updating the report",
+    });
   }
 };
 
@@ -451,7 +465,11 @@ const replaceReportImage = async (req, res) => {
   } catch (error) {
     if (!uploadedImage) await removeTemporaryUpload(req.file);
     console.error("Error replacing report image:", error);
-    return res.status(500).json({ success: false, message: "Unable to replace report image" });
+    const status = error.statusCode === 400 || error.name === "ValidationError" ? 400 : 500;
+    return res.status(status).json({
+      success: false,
+      message: status === 400 ? error.message : "Unable to replace report image",
+    });
   }
 };
 
@@ -507,20 +525,48 @@ const deleteReportImage = async (req, res) => {
 const deleteReport = async (req, res) => {
   try {
     const { id } = req.params;
-
     const report = await Report.findById(id);
 
-    if (!report) return res.status(404).json({ message: "Report Not Found" });
+    if (!report) {
+      return res.status(404).json({ success: false, message: "Report not found" });
+    }
 
-    if (report.reportedBy?.toString() !== req.user._id.toString())
-      return res.status(403).json({ message: "Not Permitted to Delete" });
+    if (report.reportedBy?.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "Not permitted to delete this report",
+      });
+    }
 
-    await Report.deleteOne(report);
+    const images = (report.images || []).map((url, index) => ({
+      url,
+      publicId: report.imagePublicIds?.[index],
+    }));
 
-    return res.status(200).json({ message: "Deleted Successfully" });
+    await report.deleteOne();
+
+    const cleanupResults = await Promise.allSettled(
+      images.map(({ url, publicId }) => deleteImageFromCloudinary(url, publicId)),
+    );
+
+    const cleanupFailed = cleanupResults.some((result) => result.status === "rejected");
+
+    if (cleanupFailed) {
+      console.error("Some Cloudinary images could not be removed for report:", id);
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Report deleted successfully",
+      ...(cleanupFailed && {
+        cleanupWarning: "The report was deleted, but some images may remain in storage.",
+      }),
+    });
   } catch (error) {
-    res.status(500).json({
-      message: "Internal Sever Error...Cannot Delete thr report.",
+    console.error("Error deleting report:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Unable to delete report",
     });
   }
 };

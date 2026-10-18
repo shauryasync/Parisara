@@ -15,14 +15,35 @@ import { router as adminRouter } from "./routes/admin.route.js";
 
 dotenv.config({ path: resolve(dirname(fileURLToPath(import.meta.url)), ".env") });
 
+const requiredEnv = ["MONGODB_URI", "JWT_SECRET"];
+
+const missingEnv = requiredEnv.filter((key) => !process.env[key]?.trim());
+
+if (missingEnv.length > 0) {
+  throw new Error(`Missing required environment variables: ${missingEnv.join(", ")}`);
+}
+
 const app = express();
 
-app.use(cors());
+const allowedOrigins = [process.env.CLIENT_URL].filter(Boolean);
+
+app.use(
+  cors({
+    origin(origin, callback) {
+      // Allow requests without an Origin header, such as server-to-server calls.
+      if (!origin || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(new Error("Origin not allowed by CORS"));
+    },
+  }),
+);
 
 const port = process.env.PORT || 3000;
 
 //middlewares
-app.use(express.json());
+app.use(express.json({ limit: "1mb" }));
 
 app.get("/", (req, res) => {
   res.json({
