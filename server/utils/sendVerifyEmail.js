@@ -1,32 +1,30 @@
-import nodemailer from "nodemailer";
-
 export const sendVerificationEmail = async (to, token) => {
-  const { EMAIL_USER, EMAIL_PASSWORD, CLIENT_URL } = process.env;
+  const { RESEND_API_KEY, EMAIL_FROM, CLIENT_URL } = process.env;
 
-  if (!EMAIL_USER || !EMAIL_PASSWORD) {
-    throw new Error("Email credentials are missing from the server environment");
-  }
-  if (!CLIENT_URL) {
-    throw new Error("CLIENT_URL is missing from the server environment");
+  if (!RESEND_API_KEY || !EMAIL_FROM || !CLIENT_URL) {
+    throw new Error("Email configuration is missing from the server environment");
   }
 
-  const transporter = nodemailer.createTransport({
-    service: "Gmail",
-    auth: {
-      user: EMAIL_USER,
-      pass: EMAIL_PASSWORD,
-    },
-  });
   const verifyUrl = `${CLIENT_URL}/verify-email?token=${token}`;
-
-  await transporter.sendMail({
-    from: `"Parisara" <${EMAIL_USER}>`,
-    to,
-    subject: "Verify your email address",
-    html: `
-      <h2>Verify Your Account</h2>
-      <p>Click the link below to verify your email address. This link expires in 24 hours:</p>
-      <a href="${verifyUrl}">${verifyUrl}</a>
-    `,
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${RESEND_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: EMAIL_FROM,
+      to: [to],
+      subject: "Verify your Parisara account",
+      html: `
+        <h2>Welcome to Parisara!</h2>
+        <p>Click the link below to verify your email address. This link expires in 24 hours:</p>
+        <a href="${verifyUrl}">${verifyUrl}</a>
+      `,
+    }),
   });
+
+  if (!response.ok) {
+    throw new Error(`Email provider error (${response.status}): ${await response.text()}`);
+  }
 };
